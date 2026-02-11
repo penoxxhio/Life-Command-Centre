@@ -1,0 +1,7 @@
+{
+  "name": "Life Command Center",
+  "description": "A mobile-first, AI-powered dashboard for tracking finance, fitness, and nutrition using Gemini.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
