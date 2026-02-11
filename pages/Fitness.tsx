@@ -6,8 +6,8 @@ import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { Check, Clipboard, Activity, Moon, Zap, BarChart3, Plus, Dumbbell, Flame, Download } from 'lucide-react';
-import { parseWorkoutLog } from '../services/geminiService';
+import { Check, Clipboard, Activity, Moon, Zap, BarChart3, Plus, Dumbbell, Flame, Download, AlertCircle } from 'lucide-react';
+import { parseWorkoutLog, isAiReady } from '../services/geminiService';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { exportData } from '../services/storageService';
 
@@ -21,6 +21,7 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [showHevyModal, setShowHevyModal] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
+  const aiAvailable = isAiReady();
 
   // Whoop Form State
   const [whoopForm, setWhoopForm] = useState<WhoopData>(data.whoopData);
@@ -63,6 +64,7 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   };
 
   const handleParseHevy = async () => {
+      if (!aiAvailable) return;
       setIsParsing(true);
       const exercises = await parseWorkoutLog(hevyText);
       setIsParsing(false);
@@ -158,7 +160,12 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
       {/* 2. Workout Log */}
       <Card title="WEEKLY TRAINING" action={
           <div className="flex gap-2">
-              <Button variant="ghost" className="h-8 px-2 text-xs bg-card hover:bg-border border-border/50" onClick={() => setShowHevyModal(true)}>
+              <Button 
+                variant="ghost" 
+                className={`h-8 px-2 text-xs bg-card hover:bg-border border-border/50 ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                onClick={() => aiAvailable && setShowHevyModal(true)}
+                disabled={!aiAvailable}
+              >
                   <Clipboard size={14} className="mr-1"/> PASTE
               </Button>
               <Button variant="primary" className="h-8 px-2 text-xs shadow-lg shadow-accent/20" onClick={() => setShowWorkoutModal(true)}>
@@ -276,16 +283,25 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
 
       <Modal isOpen={showHevyModal} onClose={() => setShowHevyModal(false)} title="Paste from Hevy">
           <div className="space-y-4">
+              {!aiAvailable && (
+                <div className="bg-alert/10 border border-alert/20 rounded-lg p-3 mb-2 flex items-center gap-3">
+                  <AlertCircle size={18} className="text-alert shrink-0" />
+                  <p className="text-[11px] text-alert font-medium leading-tight">
+                    API_KEY missing. Set it in your Netlify Environment Variables to enable parsing.
+                  </p>
+                </div>
+              )}
               <p className="text-xs text-textSecondary bg-card/50 p-3 rounded-lg border border-border/50">
                   Copy your workout summary text from the Hevy app (Share -&gt; Copy Text) and paste it below. AI will extract the details.
               </p>
               <textarea 
-                  className="w-full bg-background/50 border border-border rounded-lg p-3 text-textPrimary h-32 text-xs font-mono focus:ring-2 focus:ring-accent/50 focus:border-accent outline-none"
+                  className={`w-full bg-background/50 border border-border rounded-lg p-3 text-textPrimary h-32 text-xs font-mono focus:ring-2 focus:ring-accent/50 focus:border-accent outline-none ${!aiAvailable ? 'opacity-50' : ''}`}
                   value={hevyText} 
                   onChange={e => setHevyText(e.target.value)} 
-                  placeholder="Paste workout text here..." 
+                  placeholder={aiAvailable ? "Paste workout text here..." : "AI Features Disabled"} 
+                  disabled={!aiAvailable}
               />
-              <Button fullWidth onClick={handleParseHevy} disabled={isParsing} className="mt-2">
+              <Button fullWidth onClick={handleParseHevy} disabled={isParsing || !aiAvailable} className="mt-2">
                   {isParsing ? 'ANALYZING...' : 'PARSE & LOG'}
               </Button>
           </div>

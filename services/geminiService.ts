@@ -1,12 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Meal, Workout } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 const MODEL_NAME = 'gemini-3-flash-preview';
-// Using the image-specific model for vision tasks if needed, though 2.5/3 flash handles both well. 
-// The prompt rules suggest 'gemini-2.5-flash-image' for general image gen/edit, 
-// but for multimodal analysis (VQA), gemini-3-flash-preview works excellently.
 const VISION_MODEL_NAME = 'gemini-3-flash-preview'; 
+
+/**
+ * Checks if the API key is provided and not a placeholder.
+ */
+export const isAiReady = (): boolean => {
+  const key = process.env.API_KEY;
+  return !!key && key !== 'undefined' && key.length > 10;
+};
 
 const MEAL_SCHEMA = {
   type: Type.OBJECT,
@@ -30,6 +35,7 @@ const MEAL_SCHEMA = {
 };
 
 export const parseMealLog = async (description: string): Promise<Partial<Meal> | null> => {
+  if (!isAiReady()) return null;
   const prompt = `
   You are a nutrition analyzer. The user will describe a meal they ate. Estimate the nutrition.
   Respond ONLY with a JSON object, no other text, no markdown.
@@ -56,6 +62,7 @@ export const parseMealLog = async (description: string): Promise<Partial<Meal> |
 };
 
 export const analyzeFoodImage = async (base64Data: string, mimeType: string): Promise<Partial<Meal> | null> => {
+  if (!isAiReady()) return null;
   const prompt = `
   Analyze this image of food. Identify the meal and estimate the nutritional content for the entire visible portion.
   Respond ONLY with a JSON object.
@@ -94,6 +101,7 @@ export const analyzeFoodImage = async (base64Data: string, mimeType: string): Pr
 };
 
 export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: string): Promise<Partial<Meal> | null> => {
+  if (!isAiReady()) return null;
   const prompt = `
   Here is the current nutrition data for a meal: ${JSON.stringify(currentMeal)}.
   The user has provided additional context/instruction: "${instruction}".
@@ -122,6 +130,7 @@ export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: str
 };
 
 export const parseWorkoutLog = async (text: string): Promise<Partial<Workout>[] | null> => {
+    if (!isAiReady()) return null;
     const prompt = `
     Extract workout data from this text (e.g. copied from Hevy). 
     Return an array of exercises. 
@@ -161,6 +170,7 @@ export const parseWorkoutLog = async (text: string): Promise<Partial<Workout>[] 
 };
 
 export const getProteinSuggestion = async (remainingProtein: number): Promise<string> => {
+    if (!isAiReady()) return "Eat some chicken or greek yogurt.";
     const prompt = `
     The user needs ${remainingProtein}g more protein today. Suggest a quick, easy single food item or small meal to hit this target. Keep it short (max 10 words).
     `;

@@ -7,10 +7,11 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { exportData, importData } from '../services/storageService';
+import { isAiReady } from '../services/geminiService';
 import { 
   Download, Upload, Plus, Trash2, List, 
   ChevronRight, ArrowLeft, Wallet, Activity, Database, 
-  Utensils, Moon, Target, CreditCard, Landmark, RefreshCw 
+  Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle
 } from 'lucide-react';
 
 interface SettingsProps {
@@ -23,6 +24,7 @@ type SettingsSection = 'MAIN' | 'MONEY' | 'HEALTH' | 'DATA';
 
 export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('MAIN');
+  const aiAvailable = isAiReady();
 
   // --- Modal States ---
   const [showBankModal, setShowBankModal] = useState(false);
@@ -300,6 +302,18 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           onClick={() => setActiveSection('DATA')} 
        />
 
+       {/* AI Status Mini Card */}
+       <div className={`mt-4 p-4 rounded-xl border flex items-center justify-between transition-colors ${aiAvailable ? 'bg-accent/5 border-accent/20' : 'bg-alert/5 border-alert/20'}`}>
+          <div className="flex items-center gap-3">
+             <Sparkles size={20} className={aiAvailable ? 'text-accent' : 'text-textMuted'} />
+             <div>
+                <p className="text-xs font-bold text-textPrimary">AI Engine Status</p>
+                <p className="text-[10px] text-textSecondary">{aiAvailable ? 'Connected via System Environment' : 'Disconnected (Check Netlify Env)'}</p>
+             </div>
+          </div>
+          {aiAvailable ? <CheckCircle2 size={16} className="text-accent" /> : <AlertCircle size={16} className="text-alert" />}
+       </div>
+
        <div className="pt-8 text-center">
           <p className="text-[10px] text-textSecondary font-mono uppercase tracking-widest opacity-40">Life Command Center v2.1</p>
       </div>
@@ -467,6 +481,23 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
 
   const renderDataSettings = () => (
     <div className="space-y-6 animate-slide-up">
+      <Card title="AI ENGINE CONFIG">
+          <div className="flex items-center gap-3 mb-3">
+             <Sparkles size={18} className={aiAvailable ? 'text-accent' : 'text-alert'} />
+             <span className="text-sm font-bold">Gemini Status: {aiAvailable ? 'CONNECTED' : 'DISCONNECTED'}</span>
+          </div>
+          <p className="text-xs text-textSecondary leading-relaxed mb-4">
+            {aiAvailable 
+              ? "The AI engine is correctly configured via the secure environment variable API_KEY. All smart features (Food Analysis, Workout Parsing) are active."
+              : "The API_KEY is missing from the system environment. To enable AI features, you must add an API_KEY variable in your deployment dashboard (e.g., Netlify Environment Variables)."}
+          </p>
+          {!aiAvailable && (
+            <div className="bg-card p-3 rounded-lg border border-border/50 font-mono text-[10px] text-textSecondary">
+              TIP: Security guidelines prevent manual key entry. Set 'API_KEY' in your Netlify site settings.
+            </div>
+          )}
+      </Card>
+
       <Card title="BACKUP & RESTORE">
           <p className="text-xs text-textSecondary mb-4 leading-relaxed">
             Export your entire database to a JSON file for backup. You can restore it later on any device.
@@ -507,7 +538,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           {activeSection === 'DATA' && renderDataSettings()}
       </div>
 
-      {/* --- MODALS (Rendered at root to keep state alive) --- */}
+      {/* --- MODALS --- */}
 
       <ConfirmDialog 
         isOpen={confirmConfig.isOpen} 

@@ -6,8 +6,8 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
-import { parseMealLog, analyzeFoodImage, refineMealLog } from '../services/geminiService';
-import { Trash2, Sparkles, Camera, RotateCw, Send, Plus, Download } from 'lucide-react';
+import { parseMealLog, analyzeFoodImage, refineMealLog, isAiReady } from '../services/geminiService';
+import { Trash2, Sparkles, Camera, RotateCw, Send, Plus, Download, AlertCircle } from 'lucide-react';
 import { exportData } from '../services/storageService';
 
 interface NutritionProps {
@@ -19,6 +19,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
   const [mealInput, setMealInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiAvailable = isAiReady();
 
   // Confirmation State
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -44,7 +45,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
   const totalFat = todaysMeals.reduce((sum, m) => sum + m.fats, 0);
   
   const handleAiLog = async () => {
-    if (!mealInput) return;
+    if (!mealInput || !aiAvailable) return;
     setIsAnalyzing(true);
     const result = await parseMealLog(mealInput);
     setIsAnalyzing(false);
@@ -60,7 +61,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !aiAvailable) return;
 
     setIsAnalyzing(true);
     const reader = new FileReader();
@@ -81,7 +82,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
   };
 
   const handleRefine = async () => {
-    if (!pendingMeal || !refinementText) return;
+    if (!pendingMeal || !refinementText || !aiAvailable) return;
     setIsRefining(true);
     const refined = await refineMealLog(pendingMeal, refinementText);
     setIsRefining(false);
@@ -174,26 +175,36 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
 
       {/* 2. AI Logger */}
       <Card title="AI FOOD LOGGER">
+        {!aiAvailable && (
+          <div className="bg-alert/10 border border-alert/20 rounded-lg p-3 mb-4 flex items-center gap-3">
+            <AlertCircle size={18} className="text-alert shrink-0" />
+            <p className="text-[11px] text-alert font-medium leading-tight">
+              AI Features Disabled: API_KEY not found in environment. Set it in Netlify settings to enable.
+            </p>
+          </div>
+        )}
         <div className="flex gap-2 mb-3">
            <div className="relative flex-1">
              <input 
-                className="w-full bg-background/50 border border-border rounded-lg pl-4 pr-10 py-3 text-sm focus:ring-2 focus:ring-accent/50 outline-none"
-                placeholder="e.g. 2 eggs and toast..."
+                className={`w-full bg-background/50 border border-border rounded-lg pl-4 pr-10 py-3 text-sm focus:ring-2 focus:ring-accent/50 outline-none ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                placeholder={aiAvailable ? "e.g. 2 eggs and toast..." : "AI Features Unavailable"}
                 value={mealInput}
                 onChange={e => setMealInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAiLog()}
+                disabled={!aiAvailable}
              />
              <button 
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-accent hover:text-white p-1"
+                className={`absolute right-2 top-1/2 -translate-y-1/2 text-accent hover:text-white p-1 ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={handleAiLog}
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || !aiAvailable}
              >
                 {isAnalyzing ? <RotateCw className="animate-spin" size={18}/> : <Send size={18}/>}
              </button>
            </div>
            <button 
-             className="bg-card border border-border hover:bg-border text-textSecondary hover:text-white w-12 rounded-lg flex items-center justify-center transition-colors"
-             onClick={() => fileInputRef.current?.click()}
+             className={`bg-card border border-border hover:bg-border text-textSecondary hover:text-white w-12 rounded-lg flex items-center justify-center transition-colors ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+             onClick={() => aiAvailable && fileInputRef.current?.click()}
+             disabled={!aiAvailable}
            >
              <Camera size={20} />
            </button>
@@ -212,8 +223,9 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
            {data.nutritionQuickChips.map((chip, idx) => (
              <button 
                key={idx}
-               onClick={() => quickChipAdd(chip)}
-               className="whitespace-nowrap bg-background/30 border border-border/50 text-xs px-3 py-1.5 rounded-full hover:bg-accent/20 hover:text-accent transition-colors"
+               onClick={() => aiAvailable && quickChipAdd(chip)}
+               disabled={!aiAvailable}
+               className={`whitespace-nowrap bg-background/30 border border-border/50 text-xs px-3 py-1.5 rounded-full hover:bg-accent/20 hover:text-accent transition-colors ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
              >
                {chip}
              </button>
