@@ -21,14 +21,14 @@
           extend: {
             colors: {
               background: '#0D1117',
-              card: '#161B22', /* Slightly lighter than background */
+              card: '#161B22',
               border: '#30363D',
-              primary: '#5CB870', // Green
-              warning: '#D29922', // Amber
-              alert: '#F85149',   // Red
-              info: '#58A6FF',    // Blue
-              ai: '#A371F7',      // Purple
-              accent: '#2EA043',  // Github Green-ish
+              primary: '#5CB870',
+              warning: '#D29922',
+              alert: '#F85149',
+              info: '#58A6FF',
+              ai: '#A371F7',
+              accent: '#2EA043',
               textPrimary: '#F0F6FC',
               textSecondary: '#8B949E',
               textMuted: '#484F58'
@@ -64,27 +64,19 @@
         background-color: #0D1117;
         color: #F0F6FC;
         -webkit-font-smoothing: antialiased;
-        overscroll-behavior-y: none; /* Prevent bounce */
+        overscroll-behavior-y: none;
       }
-      /* Hide scrollbar for Chrome, Safari and Opera */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
-      /* Hide scrollbar for IE, Edge and Firefox */
       .no-scrollbar {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
-      /* Remove tap highlight on mobile */
       * {
         -webkit-tap-highlight-color: transparent;
       }
-      
-      /* Smooth input autofill */
-      input:-webkit-autofill,
-      input:-webkit-autofill:hover, 
-      input:-webkit-autofill:focus, 
-      input:-webkit-autofill:active{
+      input:-webkit-autofill {
           -webkit-box-shadow: 0 0 0 30px #161B22 inset !important;
           -webkit-text-fill-color: white !important;
           transition: background-color 5000s ease-in-out 0s;
@@ -93,14 +85,14 @@
   <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "vite": "https://esm.sh/vite@^7.3.1",
     "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "recharts": "https://esm.sh/recharts@^3.7.0"
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4"
   }
 }
 </script>
