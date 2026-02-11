@@ -277,7 +277,7 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
       <Modal isOpen={showHevyModal} onClose={() => setShowHevyModal(false)} title="Paste from Hevy">
           <div className="space-y-4">
               <p className="text-xs text-textSecondary bg-card/50 p-3 rounded-lg border border-border/50">
-                  Copy your workout summary text from the Hevy app (Share -> Copy Text) and paste it below. AI will extract the details.
+                  Copy your workout summary text from the Hevy app (Share -&gt; Copy Text) and paste it below. AI will extract the details.
               </p>
               <textarea 
                   className="w-full bg-background/50 border border-border rounded-lg p-3 text-textPrimary h-32 text-xs font-mono focus:ring-2 focus:ring-accent/50 focus:border-accent outline-none"
