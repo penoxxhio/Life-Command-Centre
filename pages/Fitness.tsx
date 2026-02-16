@@ -27,14 +27,16 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
 
   // Load imported health data
   const [importedToday, setImportedToday] = useState<HealthDayData | null>(null);
+  const [latestSleepDay, setLatestSleepDay] = useState<HealthDayData | null>(null);
+  const [latestHeartDay, setLatestHeartDay] = useState<HealthDayData | null>(null);
   const [hasHealthData, setHasHealthData] = useState(false);
   const [recentSleeps, setRecentSleeps] = useState<number[]>([]);
   const [recentSteps, setRecentSteps] = useState<number[]>([]);
 
   useEffect(() => {
     const todayStr = new Date().toISOString().split('T')[0];
-    const day = getHealthDay(todayStr);
-    setImportedToday(day);
+    const todayDay = getHealthDay(todayStr);
+    setImportedToday(todayDay);
     
     const imp = getHealthImport();
     if (imp) {
@@ -43,6 +45,14 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
         const days = imp.days.slice(0, 7).reverse();
         setRecentSleeps(days.map(d => d.sleep ? d.sleep.asleepHours : 0));
         setRecentSteps(days.map(d => d.steps));
+
+        // Find latest sleep (most recent first)
+        const lastSleep = imp.days.find(d => d.sleep !== null);
+        if (lastSleep) setLatestSleepDay(lastSleep);
+
+        // Find latest heart
+        const lastHeart = imp.days.find(d => d.restingHR !== null || d.hrvAvg !== null);
+        if (lastHeart) setLatestHeartDay(lastHeart);
     }
   }, []);
 
@@ -158,8 +168,8 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   // --- HEALTH CARDS RENDERERS ---
 
   const renderSleepCard = () => {
-    if (!importedToday?.sleep) return null;
-    const { asleepHours, inBedHours } = importedToday.sleep;
+    if (!latestSleepDay?.sleep) return null;
+    const { asleepHours, inBedHours } = latestSleepDay.sleep;
     const goal = data.fitnessGoals.sleepGoal;
     
     // Color logic
@@ -175,7 +185,7 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
                     <span className="text-xs text-textSecondary ml-2">in bed {inBedHours.toFixed(1)}h</span>
                 </div>
                 <div className="text-right">
-                    <span className="text-[10px] text-textSecondary uppercase block">{new Date(importedToday.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>
+                    <span className="text-[10px] text-textSecondary uppercase block">{new Date(latestSleepDay.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>
                 </div>
             </div>
             {/* Mini Bar Chart */}
@@ -197,9 +207,10 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   };
 
   const renderHeartCard = () => {
-      const rhr = importedToday?.restingHR;
-      const hrv = importedToday?.hrvAvg;
-      if (rhr === null && hrv === null) return null;
+      const rhr = latestHeartDay?.restingHR;
+      const hrv = latestHeartDay?.hrvAvg;
+      // Fallback to null checks to avoid rendering if data is missing, checking for undefined/null safely
+      if (!latestHeartDay || (rhr == null && hrv == null)) return null;
 
       const rhrColor = !rhr ? '' : rhr < 60 ? 'text-primary' : rhr < 70 ? 'text-warning' : 'text-alert';
       const hrvColor = !hrv ? '' : hrv > 50 ? 'text-primary' : hrv > 30 ? 'text-warning' : 'text-alert';
@@ -219,6 +230,9 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
                           {hrv ? Math.round(hrv) : '--'} <span className="text-xs text-textSecondary font-normal">ms</span>
                       </p>
                   </div>
+              </div>
+              <div className="text-right mt-2">
+                  <span className="text-[10px] text-textSecondary uppercase block">{new Date(latestHeartDay.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>
               </div>
           </Card>
       );

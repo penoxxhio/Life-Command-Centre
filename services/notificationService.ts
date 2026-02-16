@@ -1,3 +1,4 @@
+
 export const requestNotificationPermission = async (): Promise<boolean> => {
     if (!('Notification' in window)) return false;
     
@@ -24,8 +25,11 @@ const REMINDER_TIMES = [
     { hour: 20, id: 'evening' }
 ];
 
+let _initialized = false;
+
 export const initNotificationService = () => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || _initialized) return;
+    _initialized = true;
     
     // Check loop
     setInterval(() => {

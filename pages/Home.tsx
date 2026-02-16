@@ -5,7 +5,7 @@ import { Card } from '../components/ui/Card';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { ArrowRight, Flame, Moon, Target, Footprints } from 'lucide-react';
-import { getLatestSleep, getHealthDay } from '../services/healthImportService';
+import { getLatestSleep, getHealthDay, getHealthImport } from '../services/healthImportService';
 
 interface HomeProps {
   data: AppData;
@@ -46,10 +46,30 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
   startOfWeek.setDate(today.getDate() - dayOfWeek);
   const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
   
-  const manualWorkoutsCount = data.workouts.filter(w => w.date >= startOfWeekStr && w.completed).length;
-  // TODO: Add imported count if needed, but simple manual count is okay for home quick view for now
-  // or use new service logic if implemented. For home summary, manual is often enough if syncing.
-  const weeklyWorkouts = manualWorkoutsCount; 
+  const manualWorkouts = data.workouts.filter(w => w.date >= startOfWeekStr && w.completed);
+  
+  let weeklyWorkouts = manualWorkouts.length;
+  const imp = getHealthImport();
+  if (imp) {
+      const importedDatesThisWeek = new Set(
+          imp.days
+             .filter(d => d.date >= startOfWeekStr && d.workouts && d.workouts.length > 0)
+             .flatMap(d => d.workouts!.map(w => d.date))
+      );
+      
+      // Count imported workouts + manual workouts that are NOT on the same day as an imported one
+      // (Assuming preference for imported data on conflicts, or simple union of days)
+      // Fix instruction: "Deduplicate: if a manual and imported workout share the same date, count them as one."
+      // We will count total distinct workout events, prioritizing imported.
+      
+      const importedCount = imp.days
+        .filter(d => d.date >= startOfWeekStr && d.workouts)
+        .reduce((sum, d) => sum + (d.workouts?.length || 0), 0);
+
+      const manualUniqueCount = manualWorkouts.filter(w => !importedDatesThisWeek.has(w.date)).length;
+      
+      weeklyWorkouts = importedCount + manualUniqueCount;
+  }
 
   const workoutTarget = data.fitnessGoals.weeklySessionTarget;
 
