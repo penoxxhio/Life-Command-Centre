@@ -1,16 +1,25 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Meal, Workout } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-const MODEL_NAME = 'gemini-3-flash-preview';
-const VISION_MODEL_NAME = 'gemini-3-flash-preview'; 
+// DO NOT create GoogleGenAI at the top level — it crashes without a key.
+const MODEL_NAME = 'gemini-2.0-flash';
+const VISION_MODEL_NAME = 'gemini-2.0-flash';
 
-/**
- * Checks if the API key is provided and not a placeholder.
- */
+let _ai: GoogleGenAI | null = null;
+
+const getAi = (): GoogleGenAI | null => {
+  const key = localStorage.getItem('gemini_api_key') || process.env.API_KEY || '';
+  if (!key || key === 'undefined' || key.length < 10) return null;
+  if (!_ai) {
+    try { _ai = new GoogleGenAI({ apiKey: key }); } catch { return null; }
+  }
+  return _ai;
+};
+
+export const clearAiInstance = () => { _ai = null; };
+
 export const isAiReady = (): boolean => {
-  const key = process.env.API_KEY;
-  return !!key && key !== 'undefined' && key.length > 10;
+  return getAi() !== null;
 };
 
 const MEAL_SCHEMA = {
@@ -35,7 +44,9 @@ const MEAL_SCHEMA = {
 };
 
 export const parseMealLog = async (description: string): Promise<Partial<Meal> | null> => {
-  if (!isAiReady()) return null;
+  const ai = getAi();
+  if (!ai) return null;
+
   const prompt = `
   You are a nutrition analyzer. The user will describe a meal they ate. Estimate the nutrition.
   Respond ONLY with a JSON object, no other text, no markdown.
@@ -62,7 +73,9 @@ export const parseMealLog = async (description: string): Promise<Partial<Meal> |
 };
 
 export const analyzeFoodImage = async (base64Data: string, mimeType: string): Promise<Partial<Meal> | null> => {
-  if (!isAiReady()) return null;
+  const ai = getAi();
+  if (!ai) return null;
+
   const prompt = `
   Analyze this image of food. Identify the meal and estimate the nutritional content for the entire visible portion.
   Respond ONLY with a JSON object.
@@ -101,7 +114,9 @@ export const analyzeFoodImage = async (base64Data: string, mimeType: string): Pr
 };
 
 export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: string): Promise<Partial<Meal> | null> => {
-  if (!isAiReady()) return null;
+  const ai = getAi();
+  if (!ai) return null;
+
   const prompt = `
   Here is the current nutrition data for a meal: ${JSON.stringify(currentMeal)}.
   The user has provided additional context/instruction: "${instruction}".
@@ -130,7 +145,9 @@ export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: str
 };
 
 export const parseWorkoutLog = async (text: string): Promise<Partial<Workout>[] | null> => {
-    if (!isAiReady()) return null;
+    const ai = getAi();
+    if (!ai) return null;
+
     const prompt = `
     Extract workout data from this text (e.g. copied from Hevy). 
     Return an array of exercises. 
@@ -170,7 +187,9 @@ export const parseWorkoutLog = async (text: string): Promise<Partial<Workout>[] 
 };
 
 export const getProteinSuggestion = async (remainingProtein: number): Promise<string> => {
-    if (!isAiReady()) return "Eat some chicken or greek yogurt.";
+    const ai = getAi();
+    if (!ai) return "Eat some chicken or greek yogurt.";
+
     const prompt = `
     The user needs ${remainingProtein}g more protein today. Suggest a quick, easy single food item or small meal to hit this target. Keep it short (max 10 words).
     `;

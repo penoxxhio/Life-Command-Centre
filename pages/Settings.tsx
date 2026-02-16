@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppData, BankAccount, BudgetCategory, DebtAccount, RecurringTransaction } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -7,11 +7,13 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { exportData, importData } from '../services/storageService';
-import { isAiReady } from '../services/geminiService';
+import { getHealthImport, saveHealthImport, clearHealthImport } from '../services/healthImportService';
+import { isAiReady, clearAiInstance } from '../services/geminiService';
+import { requestNotificationPermission } from '../services/notificationService';
 import { 
   Download, Upload, Plus, Trash2, List, 
   ChevronRight, ArrowLeft, Wallet, Activity, Database, 
-  Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle
+  Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Bell, HeartPulse
 } from 'lucide-react';
 
 interface SettingsProps {
@@ -24,7 +26,7 @@ type SettingsSection = 'MAIN' | 'MONEY' | 'HEALTH' | 'DATA';
 
 export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('MAIN');
-  const aiAvailable = isAiReady();
+  const [aiConnected, setAiConnected] = useState(isAiReady());
 
   // --- Modal States ---
   const [showBankModal, setShowBankModal] = useState(false);
@@ -70,6 +72,22 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   const [recDest, setRecDest] = useState(data.bankAccounts[0]?.id || '');
   const [recIncomeSource, setRecIncomeSource] = useState('');
 
+  // API Key Input
+  const [apiKeyInput, setApiKeyInput] = useState(localStorage.getItem('gemini_api_key') || '');
+  
+  // Health Import State
+  const [healthJsonText, setHealthJsonText] = useState('');
+  const [healthDataInfo, setHealthDataInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAiConnected(isAiReady());
+    const existingHealth = getHealthImport();
+    if (existingHealth && existingHealth.exportDate) {
+        setHealthDataInfo(`Last import: ${existingHealth.exportDate} • ${existingHealth.totalDays} days of data`);
+    } else {
+        setHealthDataInfo('No health data imported.');
+    }
+  }, []);
 
   // --- Handlers ---
 
@@ -93,6 +111,65 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       input.click();
   };
 
+  const processHealthJson = (jsonString: string) => {
+      // Sanitize input: replace smart quotes (curly quotes) with standard quotes
+      const sanitized = jsonString
+          .replace(/[\u201C\u201D]/g, '"') // Replace smart double quotes
+          .replace(/[\u2018\u2019]/g, "'"); // Replace smart single quotes
+
+      let parsed;
+      try {
+          parsed = JSON.parse(sanitized);
+      } catch (e) {
+          alert('Invalid JSON: Parsing failed. Please ensure the data is valid JSON format and contains no invalid characters.');
+          console.error(e);
+          return;
+      }
+
+      if (parsed && parsed.exportDate && Array.isArray(parsed.days)) {
+          try {
+              saveHealthImport(parsed);
+              alert(`Success! Imported ${parsed.totalDays} days of health data.`);
+              setHealthJsonText('');
+              window.location.reload();
+          } catch (e: any) {
+              alert(`Import Failed: ${e.message || 'Unknown storage error'}`);
+              console.error(e);
+          }
+      } else {
+          alert('Invalid Data Structure: JSON must contain "exportDate" and a "days" array.');
+      }
+  };
+
+  const handlePasteHealthImport = () => {
+      if (!healthJsonText.trim()) {
+          alert('Please paste JSON data first.');
+          return;
+      }
+      // Small delay to allow UI to update if blocked by heavy parse
+      setTimeout(() => processHealthJson(healthJsonText), 10);
+  };
+
+  const handleHealthFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+          const text = await file.text();
+          processHealthJson(text);
+      } catch (e) {
+          alert("Failed to read file.");
+      }
+      // Reset input
+      e.target.value = '';
+  };
+
+  const handleClearHealth = () => {
+      if (confirm('Are you sure you want to clear all imported health data?')) {
+          clearHealthImport();
+          window.location.reload();
+      }
+  };
+
   const updateGoal = (key: keyof typeof data.fitnessGoals, value: string) => {
       updateData({
           fitnessGoals: {
@@ -100,6 +177,24 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
               [key]: parseFloat(value) || 0
           }
       });
+  };
+
+  const enableNotifications = async () => {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+          alert("Notifications enabled! You'll receive reminders at 9AM, 1PM, and 8PM if the app is open.");
+      } else {
+          alert("Permission denied. Check your browser settings.");
+      }
+  };
+
+  const saveApiKey = () => {
+    if (apiKeyInput.length < 10) return;
+    localStorage.setItem('gemini_api_key', apiKeyInput);
+    clearAiInstance();
+    
+    alert('API Key saved! AI features are now active.');
+    window.location.reload();
   };
 
   // Money Handlers
@@ -131,7 +226,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       if (!debtName) return;
       const newDebt: DebtAccount = {
           id: Math.random().toString(36).substr(2, 9),
-          name: debtName,
+          name: debtName, 
           currentBalance: parseFloat(debtBalance) || 0,
           startingBalance: parseFloat(debtStart) || parseFloat(debtBalance) || 1000,
           interestRate: 0,
@@ -254,7 +349,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       });
   };
 
-  // --- Sub-Components for cleanliness ---
+  // --- Sub-Components ---
 
   const MenuButton = ({ icon: Icon, label, onClick, subtext }: any) => (
     <button 
@@ -303,26 +398,25 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
        />
 
        {/* AI Status Mini Card */}
-       <div className={`mt-4 p-4 rounded-xl border flex items-center justify-between transition-colors ${aiAvailable ? 'bg-accent/5 border-accent/20' : 'bg-alert/5 border-alert/20'}`}>
+       <div className={`mt-4 p-4 rounded-xl border flex items-center justify-between transition-colors ${aiConnected ? 'bg-accent/5 border-accent/20' : 'bg-alert/5 border-alert/20'}`}>
           <div className="flex items-center gap-3">
-             <Sparkles size={20} className={aiAvailable ? 'text-accent' : 'text-textMuted'} />
+             <Sparkles size={20} className={aiConnected ? 'text-accent' : 'text-textMuted'} />
              <div>
                 <p className="text-xs font-bold text-textPrimary">AI Engine Status</p>
-                <p className="text-[10px] text-textSecondary">{aiAvailable ? 'Connected via System Environment' : 'Disconnected (Check Netlify Env)'}</p>
+                <p className="text-[10px] text-textSecondary">{aiConnected ? 'Connected' : 'Disconnected (Key Missing)'}</p>
              </div>
           </div>
-          {aiAvailable ? <CheckCircle2 size={16} className="text-accent" /> : <AlertCircle size={16} className="text-alert" />}
+          {aiConnected ? <CheckCircle2 size={16} className="text-accent" /> : <AlertCircle size={16} className="text-alert" />}
        </div>
 
        <div className="pt-8 text-center">
-          <p className="text-[10px] text-textSecondary font-mono uppercase tracking-widest opacity-40">Life Command Center v2.1</p>
+          <p className="text-[10px] text-textSecondary font-mono uppercase tracking-widest opacity-40">Life Command Center v2.4</p>
       </div>
     </div>
   );
 
   const renderMoneySettings = () => (
     <div className="space-y-6 animate-slide-up pb-20">
-      {/* Banks */}
       <Card title="BANK ACCOUNTS" action={
           <button onClick={() => setShowBankModal(true)} className="text-accent hover:text-white p-1 bg-card border border-border rounded"><Plus size={16} /></button>
       }>
@@ -340,7 +434,6 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           </div>
       </Card>
 
-      {/* Debts */}
       <Card title="DEBT ACCOUNTS" action={
           <button onClick={() => setShowDebtModal(true)} className="text-accent hover:text-white p-1 bg-card border border-border rounded"><Plus size={16} /></button>
       }>
@@ -357,7 +450,6 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           </div>
       </Card>
 
-      {/* Recurring Rules */}
       <Card title="RECURRING RULES" action={
           <button onClick={() => setShowRecurringModal(true)} className="text-accent hover:text-white p-1 bg-card border border-border rounded"><Plus size={16} /></button>
       }>
@@ -380,7 +472,6 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           </div>
       </Card>
 
-      {/* Categories */}
       <Card title="BUDGET CATEGORIES" action={
           <button onClick={() => setShowCatModal(true)} className="text-accent hover:text-white p-1 bg-card border border-border rounded"><Plus size={16} /></button>
       }>
@@ -481,21 +572,77 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
 
   const renderDataSettings = () => (
     <div className="space-y-6 animate-slide-up">
+      <Card title="NOTIFICATIONS">
+          <p className="text-xs text-textSecondary mb-4 leading-relaxed">
+             Get 3 daily reminders (9AM, 1PM, 8PM) to log your meals and spending. Requires the app to be open in a browser tab.
+          </p>
+          <Button variant="ghost" fullWidth onClick={enableNotifications}>
+              <Bell size={16} className="mr-2" /> ENABLE NOTIFICATIONS
+          </Button>
+      </Card>
+
+      <Card title="HEALTH DATA IMPORT" action={<HeartPulse size={16} className="text-alert"/>}>
+          <p className="text-xs font-mono text-accent mb-2">{healthDataInfo}</p>
+          <p className="text-xs text-textSecondary mb-4 leading-relaxed">
+             Paste your pre-processed health data JSON to populate sleep, heart rate, HRV, steps, and workout history.
+          </p>
+          
+          <div className="space-y-3">
+              <textarea 
+                  className="w-full bg-background/50 border border-border rounded-lg p-3 text-xs font-mono h-32 focus:ring-2 focus:ring-accent/50 outline-none"
+                  placeholder="Paste health data JSON here..."
+                  value={healthJsonText}
+                  onChange={e => setHealthJsonText(e.target.value)}
+              />
+              <Button fullWidth onClick={handlePasteHealthImport}>
+                  IMPORT PASTED DATA
+              </Button>
+              
+              <div className="relative">
+                  <Button variant="secondary" fullWidth className="relative z-0">
+                      Or upload .json file
+                  </Button>
+                  <input 
+                      type="file" 
+                      accept=".json"
+                      className="absolute inset-0 opacity-0 z-10 cursor-pointer"
+                      onChange={handleHealthFileImport}
+                  />
+              </div>
+              
+              <Button variant="ghost" className="text-alert hover:text-alert hover:bg-alert/10 mt-2" fullWidth onClick={handleClearHealth}>
+                  Clear imported data
+              </Button>
+          </div>
+      </Card>
+
       <Card title="AI ENGINE CONFIG">
           <div className="flex items-center gap-3 mb-3">
-             <Sparkles size={18} className={aiAvailable ? 'text-accent' : 'text-alert'} />
-             <span className="text-sm font-bold">Gemini Status: {aiAvailable ? 'CONNECTED' : 'DISCONNECTED'}</span>
+             <Sparkles size={18} className={aiConnected ? 'text-accent' : 'text-alert'} />
+             <span className="text-sm font-bold">Gemini Status: {aiConnected ? 'CONNECTED' : 'DISCONNECTED'}</span>
           </div>
-          <p className="text-xs text-textSecondary leading-relaxed mb-4">
-            {aiAvailable 
-              ? "The AI engine is correctly configured via the secure environment variable API_KEY. All smart features (Food Analysis, Workout Parsing) are active."
-              : "The API_KEY is missing from the system environment. To enable AI features, you must add an API_KEY variable in your deployment dashboard (e.g., Netlify Environment Variables)."}
+          
+          <div className="space-y-3 mb-2">
+            <Input 
+                type="password"
+                placeholder="Paste Gemini API Key here"
+                value={apiKeyInput}
+                onChange={e => setApiKeyInput(e.target.value)}
+                onBlur={saveApiKey}
+            />
+            <Button fullWidth onClick={saveApiKey} disabled={apiKeyInput.length < 10}>
+                SAVE API KEY
+            </Button>
+          </div>
+          
+          <p className="text-[10px] text-textSecondary mt-2">
+             {aiConnected 
+                ? "AI engine connected. Food Analysis, Workout Parsing, and Protein suggestions are active."
+                : "Enter your Gemini API key below to enable AI features."}
           </p>
-          {!aiAvailable && (
-            <div className="bg-card p-3 rounded-lg border border-border/50 font-mono text-[10px] text-textSecondary">
-              TIP: Security guidelines prevent manual key entry. Set 'API_KEY' in your Netlify site settings.
-            </div>
-          )}
+          <p className="text-[10px] text-textSecondary mt-1">
+            Get a free key at <a href="https://ai.google.dev" target="_blank" className="text-accent hover:underline">ai.google.dev</a>. Stored only in your browser.
+          </p>
       </Card>
 
       <Card title="BACKUP & RESTORE">

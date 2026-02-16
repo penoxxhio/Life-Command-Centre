@@ -60,7 +60,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
         </main>
 
         {/* Bottom Navigation - Floating Effect */}
-        <nav className="fixed bottom-0 z-50 w-full max-w-[430px] px-4 pb-6 pt-2 pointer-events-none">
+        <nav className="fixed bottom-0 z-40 w-full max-w-[430px] px-4 pb-6 pt-2 pointer-events-none">
           <div className="bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl pointer-events-auto flex justify-between items-center px-6 h-[70px]">
             {tabs.map((tab) => {
               const Icon = tab.icon;

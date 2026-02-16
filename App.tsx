@@ -10,6 +10,7 @@ import { AppData, Tab } from './types';
 import { loadData, saveData } from './services/storageService';
 import { INITIAL_APP_DATA } from './constants';
 import { Command } from 'lucide-react';
+import { initNotificationService } from './services/notificationService';
 
 const App: React.FC = () => {
   const [data, setData] = useState<AppData>(INITIAL_APP_DATA);
@@ -29,6 +30,9 @@ const App: React.FC = () => {
           saveData(processed);
       }
       setLoading(false);
+      
+      // Init Notifications
+      initNotificationService();
     };
     init();
   }, []);

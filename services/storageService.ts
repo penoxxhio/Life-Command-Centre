@@ -1,5 +1,5 @@
 import { APP_DATA_KEY, INITIAL_APP_DATA } from '../constants';
-import { AppData } from '../types';
+import { AppData, HealthDayData } from '../types';
 
 export const loadData = (): AppData => {
   try {
@@ -30,6 +30,27 @@ export const saveData = (data: AppData): void => {
   } catch (error) {
     console.error("Failed to save data to storage", error);
   }
+};
+
+// --- Health Import Storage ---
+const HEALTH_IMPORT_KEY = 'health_import_data';
+
+export const saveHealthImport = (data: HealthDayData[]): void => {
+    try {
+        localStorage.setItem(HEALTH_IMPORT_KEY, JSON.stringify(data));
+    } catch (error) {
+        console.error("Failed to save health import", error);
+    }
+};
+
+export const loadHealthImport = (): HealthDayData[] => {
+    try {
+        const json = localStorage.getItem(HEALTH_IMPORT_KEY);
+        return json ? JSON.parse(json) : [];
+    } catch (error) {
+        console.error("Failed to load health import", error);
+        return [];
+    }
 };
 
 export type ExportScope = 'all' | 'money' | 'fitness' | 'nutrition';

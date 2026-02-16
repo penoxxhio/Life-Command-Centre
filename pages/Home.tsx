@@ -1,9 +1,11 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { AppData, Tab } from '../types';
 import { Card } from '../components/ui/Card';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { ArrowRight, Flame, Moon, Target } from 'lucide-react';
+import { ArrowRight, Flame, Moon, Target, Footprints } from 'lucide-react';
+import { getLatestSleep, getHealthDay } from '../services/healthImportService';
 
 interface HomeProps {
   data: AppData;
@@ -11,7 +13,12 @@ interface HomeProps {
 }
 
 export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
+  const todayStr = new Date().toISOString().split('T')[0];
   
+  // Load Health Data
+  const importedToday = getHealthDay(todayStr);
+  const latestSleep = getLatestSleep();
+
   // 1. Debt Logic
   const totalDebtStart = data.debtGoal.startingTotal;
   const currentTotalDebt = data.debtAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
@@ -24,23 +31,26 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
   const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   // 2. Auto-Tracked Logic
-  const todayStr = today.toISOString().split('T')[0];
   const todaysMeals = data.meals.filter(m => m.date === todayStr);
   const todaysProtein = todaysMeals.reduce((sum, m) => sum + m.protein, 0);
   const proteinGoal = data.fitnessGoals.proteinGoal;
   const proteinMet = todaysProtein >= proteinGoal;
   
-  // Sleep logic (Whoop)
-  const sleepHours = data.whoopData.hoursSlept;
+  // Sleep logic (Prefer Imported)
+  const sleepHours = latestSleep?.asleepHours || data.whoopData.hoursSlept;
   const sleepGoal = data.fitnessGoals.sleepGoal;
   
-  // Training logic
+  // Training logic (Merge manual + imported)
   const dayOfWeek = today.getDay(); 
   const startOfWeek = new Date(today);
   startOfWeek.setDate(today.getDate() - dayOfWeek);
   const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
   
-  const weeklyWorkouts = data.workouts.filter(w => w.date >= startOfWeekStr && w.completed).length;
+  const manualWorkoutsCount = data.workouts.filter(w => w.date >= startOfWeekStr && w.completed).length;
+  // TODO: Add imported count if needed, but simple manual count is okay for home quick view for now
+  // or use new service logic if implemented. For home summary, manual is often enough if syncing.
+  const weeklyWorkouts = manualWorkoutsCount; 
+
   const workoutTarget = data.fitnessGoals.weeklySessionTarget;
 
   // Recovery
@@ -82,7 +92,7 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
   return (
     <div className="space-y-6 animate-slide-up pb-10">
       
-      {/* Section 1: Hero Card (Debt Freedom) */}
+      {/* Section 1: Hero Card (Debt and Credit Cards) */}
       <Card 
         className="bg-gradient-to-br from-[#161B22] to-[#0D1117] border-border shadow-lg relative overflow-hidden group"
         onClick={() => onNavigate(Tab.MONEY)}
@@ -92,7 +102,7 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
         </div>
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h2 className="text-accent font-bold text-lg mb-1 tracking-tight">Debt Freedom</h2>
+            <h2 className="text-accent font-bold text-lg mb-1 tracking-tight">Debt and Credit Cards</h2>
             <p className="text-textSecondary text-xs font-medium">{daysRemaining} days remaining</p>
           </div>
           <div className="w-16 h-16 relative">
@@ -155,7 +165,7 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
              </span>
            </div>
            <p className="text-textSecondary text-xs mb-0.5">Sleep</p>
-           <p className="font-mono font-bold text-xl text-textPrimary">{sleepHours}<span className="text-xs text-textSecondary font-normal">/{sleepGoal}h</span></p>
+           <p className="font-mono font-bold text-xl text-textPrimary">{sleepHours.toFixed(1)}<span className="text-xs text-textSecondary font-normal">/{sleepGoal}h</span></p>
         </Card>
 
         <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors">
@@ -169,18 +179,31 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
            <p className="font-mono font-bold text-xl text-textPrimary">{weeklyWorkouts >= workoutTarget ? 'DONE' : 'PUSH'}</p>
         </Card>
 
-        <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors">
-           <div className="flex justify-between items-start mb-3">
-             <span className="text-lg">🔋</span>
-             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-border text-textSecondary`}>
-               WHOOP
-             </span>
-           </div>
-           <p className="text-textSecondary text-xs mb-0.5">Recovery</p>
-           <p className={`font-mono font-bold text-xl ${getRecoveryColor(recovery)}`}>
-             {recovery > 0 ? `${recovery}%` : '--'}
-           </p>
-        </Card>
+        {importedToday?.steps ? (
+             <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors">
+                <div className="flex justify-between items-start mb-3">
+                  <Footprints size={16} className="text-primary" />
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-border text-textSecondary`}>
+                    TODAY
+                  </span>
+                </div>
+                <p className="text-textSecondary text-xs mb-0.5">Steps</p>
+                <p className="font-mono font-bold text-xl text-textPrimary">{importedToday.steps.toLocaleString()}</p>
+             </Card>
+        ) : (
+             <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors">
+                <div className="flex justify-between items-start mb-3">
+                  <span className="text-lg">🔋</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-border text-textSecondary`}>
+                    WHOOP
+                  </span>
+                </div>
+                <p className="text-textSecondary text-xs mb-0.5">Recovery</p>
+                <p className={`font-mono font-bold text-xl ${getRecoveryColor(recovery)}`}>
+                  {recovery > 0 ? `${recovery}%` : '--'}
+                </p>
+             </Card>
+        )}
       </div>
 
       {/* Section 3: Daily Nutrition */}
@@ -196,7 +219,6 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
             </div>
          </div>
          <div className="relative h-3 bg-border rounded-full overflow-hidden mb-6">
-            {/* Burned Background Marker could go here if we had max scale, simpler to just show consumption progress */}
             <div className="absolute top-0 left-0 h-full bg-ai" style={{ width: `${Math.min(100, (todaysCalories / calorieGoal) * 100)}%` }}></div>
          </div>
 

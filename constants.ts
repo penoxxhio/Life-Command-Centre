@@ -1,5 +1,4 @@
-
-import { AppData, AppleHealthData, BudgetConfig, DebtAccount, DebtGoal, DebtPayment, FitnessGoals, UserProfile, WhoopData } from './types';
+import { AppData, BudgetConfig, DebtAccount, DebtGoal, DebtPayment, FitnessGoals, UserProfile, WhoopData } from './types';
 
 export const APP_DATA_KEY = 'life-command-center-data-v1';
 
@@ -25,25 +24,72 @@ export const INITIAL_DEBT_GOAL: DebtGoal = {
 
 export const INITIAL_BUDGET_CONFIG: BudgetConfig = {
   cycleStartDay: 1,
-  fixedObligations: [],
+  fixedObligations: [
+    { name: "Rent/Mortgage", budget: 1500, icon: "🏠", subcategories: ["Rent", "Mortgage", "Property Tax", "HOA"] },
+    { name: "Utilities", budget: 200, icon: "💡", subcategories: ["Electric", "Water", "Gas", "Internet", "Phone"] },
+    { name: "Insurance", budget: 150, icon: "🛡️", subcategories: ["Car", "Health", "Life", "Home"] },
+    { name: "Subscriptions", budget: 50, icon: "🔄", subcategories: ["Streaming", "Software", "Memberships"] }
+  ],
   livingCategories: [
     { 
-      "name": "Transport", 
-      "budget": 200, 
-      "icon": "⛽",
-      "subcategories": ["Fuel", "Taxi", "Public Transport"]
+      name: "Groceries", 
+      budget: 400, 
+      icon: "🛒",
+      subcategories: ["Supermarket", "Butcher", "Market", "Bakery"]
     },
     { 
-      "name": "Food & Drink", 
-      "budget": 400, 
-      "icon": "🍔",
-      "subcategories": ["Dining Out", "Groceries", "Coffee"]
+      name: "Dining Out", 
+      budget: 200, 
+      icon: "🍽️",
+      subcategories: ["Restaurants", "Fast Food", "Coffee", "Bars", "Delivery"]
     },
     { 
-      "name": "Shopping", 
-      "budget": 200, 
-      "icon": "🛍️",
-      "subcategories": ["Clothes", "Electronics", "Home"]
+      name: "Transport", 
+      budget: 150, 
+      icon: "⛽",
+      subcategories: ["Fuel", "Uber/Taxi", "Public Transport", "Parking", "Maintenance"]
+    },
+    { 
+      name: "Shopping", 
+      budget: 200, 
+      icon: "🛍️",
+      subcategories: ["Clothing", "Electronics", "Home Goods", "Gifts"]
+    },
+    {
+      name: "Personal Care",
+      budget: 100,
+      icon: "💇",
+      subcategories: ["Haircut", "Cosmetics", "Hygiene", "Spa"]
+    },
+    {
+      name: "Health & Fitness",
+      budget: 100,
+      icon: "💊",
+      subcategories: ["Pharmacy", "Doctor", "Supplements", "Gym Gear"]
+    },
+    {
+      name: "Entertainment",
+      budget: 150,
+      icon: "🎬",
+      subcategories: ["Movies", "Events", "Games", "Hobbies", "Night Out"]
+    },
+    {
+      name: "Education",
+      budget: 50,
+      icon: "📚",
+      subcategories: ["Books", "Courses", "Supplies"]
+    },
+    {
+      name: "Travel",
+      budget: 0,
+      icon: "✈️",
+      subcategories: ["Flights", "Hotels", "Activities", "Car Rental"]
+    },
+    {
+      name: "Misc",
+      budget: 100,
+      icon: "📦",
+      subcategories: ["Charity", "Fees", "Unexpected"]
     }
   ]
 };
@@ -62,16 +108,6 @@ export const INITIAL_FITNESS_GOALS: FitnessGoals = {
   exerciseGoal: 30,
   standGoal: 12,
   stepGoal: 8000
-};
-
-export const INITIAL_APPLE_HEALTH: AppleHealthData = {
-  lastUpdated: "",
-  steps: 0,
-  activeEnergy: 0,
-  exerciseTime: 0,
-  standHours: 0,
-  distance: 0,
-  flightsClimbed: 0
 };
 
 export const INITIAL_WHOOP_DATA: WhoopData = {
@@ -107,7 +143,6 @@ export const INITIAL_APP_DATA: AppData = {
   transfers: [],
   recurringTransactions: [],
   fitnessGoals: INITIAL_FITNESS_GOALS,
-  appleHealthData: INITIAL_APPLE_HEALTH,
   whoopData: INITIAL_WHOOP_DATA,
   workouts: [],
   meals: [],

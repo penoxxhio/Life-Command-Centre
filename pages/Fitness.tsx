@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { AppData, Workout, WhoopData } from '../types';
+
+import React, { useState, useEffect } from 'react';
+import { AppData, Workout, WhoopData, HealthDayData } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { Check, Clipboard, Activity, Moon, Zap, BarChart3, Plus, Dumbbell, Flame, Download, AlertCircle } from 'lucide-react';
+import { Clipboard, Activity, Moon, Zap, BarChart3, Plus, Dumbbell, Flame, Download, AlertCircle, HeartPulse, Footprints } from 'lucide-react';
 import { parseWorkoutLog, isAiReady } from '../services/geminiService';
-import { ProgressBar } from '../components/ui/ProgressBar';
 import { exportData } from '../services/storageService';
+import { getHealthImport, getHealthDay } from '../services/healthImportService';
+import { ProgressBar } from '../components/ui/ProgressBar';
 
 interface FitnessProps {
   data: AppData;
@@ -17,14 +19,35 @@ interface FitnessProps {
 }
 
 export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
-  const [showWhoopModal, setShowWhoopModal] = useState(false);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [showHevyModal, setShowHevyModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const aiAvailable = isAiReady();
 
-  // Whoop Form State
-  const [whoopForm, setWhoopForm] = useState<WhoopData>(data.whoopData);
+  // Load imported health data
+  const [importedToday, setImportedToday] = useState<HealthDayData | null>(null);
+  const [hasHealthData, setHasHealthData] = useState(false);
+  const [recentSleeps, setRecentSleeps] = useState<number[]>([]);
+  const [recentSteps, setRecentSteps] = useState<number[]>([]);
+
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const day = getHealthDay(todayStr);
+    setImportedToday(day);
+    
+    const imp = getHealthImport();
+    if (imp) {
+        setHasHealthData(true);
+        // Get last 7 days for charts
+        const days = imp.days.slice(0, 7).reverse();
+        setRecentSleeps(days.map(d => d.sleep ? d.sleep.asleepHours : 0));
+        setRecentSteps(days.map(d => d.steps));
+    }
+  }, []);
+
+  // Manual Form State (Whoop/Apple)
+  const [manualForm, setManualForm] = useState<WhoopData>(data.whoopData);
 
   // Workout Form State
   const [workoutType, setWorkoutType] = useState('Push');
@@ -42,11 +65,11 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
-  const handleUpdateWhoop = () => {
+  const handleManualUpdate = () => {
       updateData({
-          whoopData: { ...whoopForm, lastUpdated: new Date().toISOString().split('T')[0] }
+          whoopData: { ...manualForm, lastUpdated: new Date().toISOString().split('T')[0] }
       });
-      setShowWhoopModal(false);
+      setShowUpdateModal(false);
   };
 
   const handleLogWorkout = () => {
@@ -109,53 +132,168 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   startOfWeek.setDate(today.getDate() - dayOfWeek);
   const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
   
-  const weeklyWorkouts = data.workouts.filter(w => w.date >= startOfWeekStr);
-  const totalDuration = weeklyWorkouts.reduce((sum, w) => sum + w.duration, 0);
+  // Merge Manual + Imported Workouts
+  const manualWorkouts = data.workouts.filter(w => w.date >= startOfWeekStr);
+  
+  let importedWorkoutsThisWeek: Workout[] = [];
+  const imp = getHealthImport();
+  if (imp) {
+      importedWorkoutsThisWeek = imp.days
+      .filter(d => d.date >= startOfWeekStr && d.workouts)
+      .flatMap(d => d.workouts!.map(w => ({
+          id: `imported_${w.startDate}`,
+          date: d.date,
+          type: w.type,
+          duration: w.duration,
+          notes: `${w.source} Import`,
+          completed: true,
+          isImported: true
+      } as unknown as Workout)));
+  }
+
+  // Deduplicate: If manual workout exists on same day, use imported metadata if better?
+  // Simple strategy: Show both, let user delete manual if duplicate.
+  const allWeeklyWorkouts = [...manualWorkouts, ...importedWorkoutsThisWeek].sort((a,b) => b.date.localeCompare(a.date));
+
+  // --- HEALTH CARDS RENDERERS ---
+
+  const renderSleepCard = () => {
+    if (!importedToday?.sleep) return null;
+    const { asleepHours, inBedHours } = importedToday.sleep;
+    const goal = data.fitnessGoals.sleepGoal;
+    
+    // Color logic
+    let color = '#5CB870'; // Green
+    if (asleepHours < goal - 1) color = '#F85149'; // Red
+    else if (asleepHours < goal) color = '#D29922'; // Yellow
+
+    return (
+        <Card title="SLEEP" className="bg-card/50">
+            <div className="flex justify-between items-end mb-3">
+                <div>
+                    <span className="text-4xl font-mono font-bold" style={{color}}>{asleepHours.toFixed(1)}h</span>
+                    <span className="text-xs text-textSecondary ml-2">in bed {inBedHours.toFixed(1)}h</span>
+                </div>
+                <div className="text-right">
+                    <span className="text-[10px] text-textSecondary uppercase block">{new Date(importedToday.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>
+                </div>
+            </div>
+            {/* Mini Bar Chart */}
+            <div className="flex items-end gap-1 h-8 mt-2">
+                {recentSleeps.map((val, i) => (
+                    <div key={i} className="flex-1 bg-border/30 rounded-t-sm relative group h-full flex items-end">
+                        <div 
+                            className="w-full rounded-t-sm transition-all"
+                            style={{ 
+                                height: `${Math.min(100, (val / 10) * 100)}%`,
+                                backgroundColor: val >= goal ? '#5CB870' : val >= goal - 1 ? '#D29922' : '#F85149' 
+                            }}
+                        />
+                    </div>
+                ))}
+            </div>
+        </Card>
+    );
+  };
+
+  const renderHeartCard = () => {
+      const rhr = importedToday?.restingHR;
+      const hrv = importedToday?.hrvAvg;
+      if (rhr === null && hrv === null) return null;
+
+      const rhrColor = !rhr ? '' : rhr < 60 ? 'text-primary' : rhr < 70 ? 'text-warning' : 'text-alert';
+      const hrvColor = !hrv ? '' : hrv > 50 ? 'text-primary' : hrv > 30 ? 'text-warning' : 'text-alert';
+
+      return (
+          <Card className="bg-card/50">
+              <div className="flex divide-x divide-border/50">
+                  <div className="flex-1 text-center pr-2">
+                      <p className="text-[10px] text-textSecondary uppercase font-bold mb-1">RHR</p>
+                      <p className={`text-2xl font-mono font-bold ${rhrColor}`}>
+                          {rhr ? Math.round(rhr) : '--'} <span className="text-xs text-textSecondary font-normal">bpm</span>
+                      </p>
+                  </div>
+                  <div className="flex-1 text-center pl-2">
+                      <p className="text-[10px] text-textSecondary uppercase font-bold mb-1">HRV</p>
+                      <p className={`text-2xl font-mono font-bold ${hrvColor}`}>
+                          {hrv ? Math.round(hrv) : '--'} <span className="text-xs text-textSecondary font-normal">ms</span>
+                      </p>
+                  </div>
+              </div>
+          </Card>
+      );
+  };
+
+  const renderStepsCard = () => {
+      if (!importedToday) return null;
+      const steps = importedToday.steps;
+      const avg = recentSteps.length > 0 ? Math.round(recentSteps.reduce((a,b)=>a+b,0)/recentSteps.length) : 0;
+      
+      return (
+        <Card title="STEPS" className="bg-card/50">
+            <div className="flex justify-between items-end mb-3">
+                <div>
+                    <span className="text-3xl font-mono font-bold text-white">{steps.toLocaleString()}</span>
+                </div>
+                <div className="text-right">
+                    <span className="text-xs text-textSecondary font-medium">7-Day Avg</span>
+                    <span className="block font-mono text-sm">{avg.toLocaleString()}</span>
+                </div>
+            </div>
+            <div className="flex items-end gap-1 h-6 mt-1">
+                {recentSteps.map((val, i) => (
+                    <div key={i} className="flex-1 bg-border/30 rounded-t-sm relative h-full flex items-end">
+                        <div 
+                            className="w-full bg-accent rounded-t-sm transition-all"
+                            style={{ height: `${Math.min(100, (val / 15000) * 100)}%` }}
+                        />
+                    </div>
+                ))}
+            </div>
+        </Card>
+      );
+  };
+
+  const renderActivityCard = () => {
+      if (!importedToday) return null;
+      return (
+          <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="bg-card border border-border rounded-lg p-2 text-center">
+                  <p className="text-[10px] text-textSecondary uppercase">Move</p>
+                  <p className="font-mono font-bold text-accent">{Math.round(importedToday.activeCalories)} <span className="text-[10px]">cal</span></p>
+              </div>
+              <div className="bg-card border border-border rounded-lg p-2 text-center">
+                  <p className="text-[10px] text-textSecondary uppercase">Exercise</p>
+                  <p className="font-mono font-bold text-primary">{Math.round(importedToday.exerciseMinutes)} <span className="text-[10px]">min</span></p>
+              </div>
+              <div className="bg-card border border-border rounded-lg p-2 text-center">
+                  <p className="text-[10px] text-textSecondary uppercase">Stand</p>
+                  <p className="font-mono font-bold text-info">{Math.round(importedToday.standHours)} <span className="text-[10px]">hr</span></p>
+              </div>
+          </div>
+      );
+  };
+
+  // ---
 
   return (
-    <div className="space-y-6 animate-slide-up">
+    <div className="space-y-6 animate-slide-up pb-10">
       
-      {/* 1. Whoop Data Card */}
-      <Card title={`WHOOP METRICS • ${data.whoopData.lastUpdated || 'NO DATA'}`} action={
-          <div className="flex gap-2">
-             <Button variant="ghost" className="h-8 px-2 text-xs" onClick={() => exportData(data, 'file', 'fitness')}>
-                <Download size={14} />
-             </Button>
-             <Button variant="ghost" className="h-8 px-2 text-xs" onClick={() => {
-                 setWhoopForm(data.whoopData);
-                 setShowWhoopModal(true);
-             }}>UPDATE</Button>
+      {/* HEALTH IMPORT SECTION */}
+      {hasHealthData ? (
+          <div className="space-y-4">
+             {renderSleepCard()}
+             <div className="grid grid-cols-2 gap-4">
+                 {renderHeartCard()}
+                 {renderStepsCard()}
+             </div>
+             {renderActivityCard()}
           </div>
-      }>
-          <div className="grid grid-cols-4 gap-2 text-center mb-4">
-              <div className="bg-background/40 rounded-lg p-2.5 border border-border/50 shadow-sm">
-                  <p className="text-[10px] text-textSecondary uppercase flex justify-center items-center gap-1 mb-1"><Zap size={10} /> Rec</p>
-                  <p className={`font-mono font-bold text-lg ${
-                      data.whoopData.recovery > 66 ? 'text-primary' : data.whoopData.recovery > 33 ? 'text-warning' : 'text-alert'
-                  }`}>{data.whoopData.recovery}%</p>
-              </div>
-              <div className="bg-background/40 rounded-lg p-2.5 border border-border/50 shadow-sm">
-                  <p className="text-[10px] text-textSecondary uppercase flex justify-center items-center gap-1 mb-1"><Activity size={10} /> HRV</p>
-                  <p className="font-mono font-bold text-lg text-textPrimary">{data.whoopData.hrv}</p>
-              </div>
-              <div className="bg-background/40 rounded-lg p-2.5 border border-border/50 shadow-sm">
-                  <p className="text-[10px] text-textSecondary uppercase flex justify-center items-center gap-1 mb-1"><Flame size={10} /> Cal</p>
-                  <p className="font-mono font-bold text-lg text-textPrimary">{data.whoopData.caloriesBurned}</p>
-              </div>
-              <div className="bg-background/40 rounded-lg p-2.5 border border-border/50 shadow-sm">
-                  <p className="text-[10px] text-textSecondary uppercase flex justify-center items-center gap-1 mb-1"><BarChart3 size={10} /> Str</p>
-                  <p className="font-mono font-bold text-lg text-info">{data.whoopData.strain}</p>
-              </div>
+      ) : (
+          <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 flex justify-between items-center" onClick={() => {}}>
+              <span className="text-xs text-accent font-medium">Import health data in Settings for automatic tracking.</span>
           </div>
-          
-          <div className="space-y-2 px-1">
-              <div className="flex justify-between text-xs">
-                  <span className="text-textSecondary flex items-center gap-1.5 font-medium"><Moon size={12}/> Sleep Performance</span>
-                  <span className="font-mono text-white">{data.whoopData.hoursSlept} / {data.fitnessGoals.sleepGoal} hrs</span>
-              </div>
-              <ProgressBar value={data.whoopData.hoursSlept} max={data.fitnessGoals.sleepGoal} color="#6B8EAF" />
-          </div>
-      </Card>
+      )}
 
       {/* 2. Workout Log */}
       <Card title="WEEKLY TRAINING" action={
@@ -174,28 +312,36 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
           </div>
       }>
           <div className="flex items-end gap-2 mb-4">
-              <h2 className="text-3xl font-mono font-bold text-white tracking-tighter">{weeklyWorkouts.length}</h2>
+              <h2 className="text-3xl font-mono font-bold text-white tracking-tighter">{allWeeklyWorkouts.length}</h2>
               <span className="text-xs text-textSecondary mb-1.5 font-medium uppercase tracking-wide">sessions this week</span>
           </div>
 
           <div className="space-y-3 pb-2">
-              {weeklyWorkouts.map((workout) => (
-                  <div key={workout.id} className="bg-card/50 border border-border/50 rounded-xl p-3 flex justify-between items-center shadow-sm hover:border-border transition-colors">
-                      <div className="flex items-center gap-3">
-                          <div className="bg-background p-2.5 rounded-full border border-border/50 text-accent">
-                              <Dumbbell size={18} />
-                          </div>
-                          <div>
-                              <p className="font-bold text-sm text-textPrimary">{workout.type} Workout</p>
-                              <p className="text-xs text-textSecondary mt-0.5 font-mono">{workout.duration} mins • {new Date(workout.date).toLocaleDateString(undefined, {weekday: 'short'})}</p>
-                          </div>
-                      </div>
-                      <button onClick={() => confirmDeleteWorkout(workout.id)} className="text-textSecondary hover:text-alert p-2 rounded-lg transition-colors">
-                          <span className="text-[10px] font-mono font-bold">DEL</span>
-                      </button>
-                  </div>
-              ))}
-              {weeklyWorkouts.length === 0 && (
+              {allWeeklyWorkouts.map((workout) => {
+                  const isImported = (workout as any).isImported;
+                  return (
+                    <div key={workout.id} className={`bg-card/50 border ${isImported ? 'border-accent/20' : 'border-border/50'} rounded-xl p-3 flex justify-between items-center shadow-sm hover:border-border transition-colors`}>
+                        <div className="flex items-center gap-3">
+                            <div className={`bg-background p-2.5 rounded-full border border-border/50 ${isImported ? 'text-accent' : 'text-textPrimary'}`}>
+                                <Dumbbell size={18} />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-bold text-sm text-textPrimary">{workout.type}</p>
+                                    {isImported && <span className="text-[9px] bg-accent/10 text-accent px-1.5 rounded uppercase font-bold">Imported</span>}
+                                </div>
+                                <p className="text-xs text-textSecondary mt-0.5 font-mono">{Math.round(workout.duration)} mins • {new Date(workout.date).toLocaleDateString(undefined, {weekday: 'short'})}</p>
+                            </div>
+                        </div>
+                        {!isImported && (
+                            <button onClick={() => confirmDeleteWorkout(workout.id)} className="text-textSecondary hover:text-alert p-2 rounded-lg transition-colors">
+                                <span className="text-[10px] font-mono font-bold">DEL</span>
+                            </button>
+                        )}
+                    </div>
+                  );
+              })}
+              {allWeeklyWorkouts.length === 0 && (
                   <div className="text-center py-8 bg-card/30 rounded-xl border border-dashed border-border/50">
                       <p className="text-textSecondary text-xs">No workouts logged this week.</p>
                   </div>
@@ -212,41 +358,41 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
       />
 
       {/* MODALS */}
-      <Modal isOpen={showWhoopModal} onClose={() => setShowWhoopModal(false)} title="Update Whoop Data">
+      <Modal isOpen={showUpdateModal} onClose={() => setShowUpdateModal(false)} title="Manual Metrics">
           <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                   <Input 
                       label="Recovery (%)"
                       type="number" inputMode="numeric"
-                      value={whoopForm.recovery} onChange={e => setWhoopForm({...whoopForm, recovery: parseInt(e.target.value)||0})} 
+                      value={manualForm.recovery} onChange={e => setManualForm({...manualForm, recovery: parseInt(e.target.value)||0})} 
                   />
                   <Input 
                       label="Strain (0-21)"
                       type="number" inputMode="decimal"
-                      value={whoopForm.strain} onChange={e => setWhoopForm({...whoopForm, strain: parseFloat(e.target.value)||0})} 
+                      value={manualForm.strain} onChange={e => setManualForm({...manualForm, strain: parseFloat(e.target.value)||0})} 
                   />
                   <Input 
                       label="Calories Burned"
                       type="number" inputMode="numeric"
-                      value={whoopForm.caloriesBurned} onChange={e => setWhoopForm({...whoopForm, caloriesBurned: parseInt(e.target.value)||0})} 
+                      value={manualForm.caloriesBurned} onChange={e => setManualForm({...manualForm, caloriesBurned: parseInt(e.target.value)||0})} 
                   />
                   <Input 
                       label="RHR (bpm)"
                       type="number" inputMode="numeric"
-                      value={whoopForm.rhr} onChange={e => setWhoopForm({...whoopForm, rhr: parseInt(e.target.value)||0})} 
+                      value={manualForm.rhr} onChange={e => setManualForm({...manualForm, rhr: parseInt(e.target.value)||0})} 
                   />
                   <Input 
                       label="Hours Slept"
                       type="number" inputMode="decimal"
-                      value={whoopForm.hoursSlept} onChange={e => setWhoopForm({...whoopForm, hoursSlept: parseFloat(e.target.value)||0})} 
+                      value={manualForm.hoursSlept} onChange={e => setManualForm({...manualForm, hoursSlept: parseFloat(e.target.value)||0})} 
                   />
                   <Input 
                       label="HRV (ms)"
                       type="number" inputMode="numeric"
-                      value={whoopForm.hrv} onChange={e => setWhoopForm({...whoopForm, hrv: parseInt(e.target.value)||0})} 
+                      value={manualForm.hrv} onChange={e => setManualForm({...manualForm, hrv: parseInt(e.target.value)||0})} 
                   />
               </div>
-              <Button fullWidth onClick={handleUpdateWhoop} className="mt-2">SAVE METRICS</Button>
+              <Button fullWidth onClick={handleManualUpdate} className="mt-2">SAVE METRICS</Button>
           </div>
       </Modal>
 
@@ -266,14 +412,14 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
               
               <Input 
                   label="Duration (mins)"
-                  type="number" inputMode="numeric"
+                  type="number" inputMode="decimal"
                   value={workoutDuration} onChange={e => setWorkoutDuration(e.target.value)} 
               />
               
               <div>
                   <label className="block text-xs text-textSecondary mb-1.5 ml-1 font-medium">Notes</label>
                   <textarea 
-                      className="w-full bg-background/50 border border-border rounded-lg px-4 py-3 text-sm text-textPrimary placeholder:text-textMuted focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all outline-none h-24 resize-none"
+                      className="w-full bg-background/50 border border-border rounded-lg px-4 py-3 text-base text-textPrimary placeholder:text-textMuted focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all outline-none h-24 resize-none"
                       value={workoutNote} onChange={e => setWorkoutNote(e.target.value)} placeholder="Bench press 80kg x 5..." 
                   />
               </div>
@@ -287,7 +433,7 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
                 <div className="bg-alert/10 border border-alert/20 rounded-lg p-3 mb-2 flex items-center gap-3">
                   <AlertCircle size={18} className="text-alert shrink-0" />
                   <p className="text-[11px] text-alert font-medium leading-tight">
-                    API_KEY missing. Set it in your Netlify Environment Variables to enable parsing.
+                    API_KEY missing. Set it in Settings to enable parsing.
                   </p>
                 </div>
               )}

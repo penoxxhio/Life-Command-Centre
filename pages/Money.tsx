@@ -610,7 +610,12 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       />
 
       {/* MODALS */}
-      <Modal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} title="Log Debt Payment">
+      <Modal 
+        isOpen={showPaymentModal} 
+        onClose={() => setShowPaymentModal(false)} 
+        title="Log Debt Payment"
+        footer={<Button fullWidth onClick={handleLogPayment}>CONFIRM PAYMENT</Button>}
+      >
           <div className="space-y-4">
               <Select 
                 label="Select Card"
@@ -622,27 +627,32 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                   ))}
               </Select>
               
-              <Input 
-                label="Amount"
-                type="number"
-                inputMode="decimal"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="0.00"
-              />
-              
-              <Input 
-                label="Date"
-                type="date" 
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-              />
-              
-              <Button fullWidth onClick={handleLogPayment} className="mt-2">CONFIRM PAYMENT</Button>
+              <div className="grid grid-cols-2 gap-3">
+                  <Input 
+                    label="Amount"
+                    type="number"
+                    inputMode="decimal"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                  
+                  <Input 
+                    label="Date"
+                    type="date" 
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                  />
+              </div>
           </div>
       </Modal>
 
-      <Modal isOpen={showExpenseModal} onClose={() => setShowExpenseModal(false)} title="Add Expense">
+      <Modal 
+        isOpen={showExpenseModal} 
+        onClose={() => setShowExpenseModal(false)} 
+        title="Add Expense"
+        footer={<Button fullWidth onClick={handleAddExpense}>ADD EXPENSE</Button>}
+      >
           <div className="space-y-4">
               <Select 
                 label="Category"
@@ -683,21 +693,23 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                   </optgroup>
               </Select>
 
-              <Input 
-                label="Amount"
-                type="number"
-                inputMode="decimal"
-                value={expenseAmount}
-                onChange={(e) => setExpenseAmount(e.target.value)}
-                placeholder="0.00"
-              />
-              
-              <Input 
-                label="Date"
-                type="date" 
-                value={expenseDate}
-                onChange={(e) => setExpenseDate(e.target.value)}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                  <Input 
+                    label="Amount"
+                    type="number"
+                    inputMode="decimal"
+                    value={expenseAmount}
+                    onChange={(e) => setExpenseAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                  
+                  <Input 
+                    label="Date"
+                    type="date" 
+                    value={expenseDate}
+                    onChange={(e) => setExpenseDate(e.target.value)}
+                  />
+              </div>
               
               <Input 
                 label="Note (Optional)"
@@ -706,12 +718,15 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                 onChange={(e) => setExpenseNote(e.target.value)}
                 placeholder="Dinner with friends..."
               />
-              
-              <Button fullWidth onClick={handleAddExpense} className="mt-2">ADD EXPENSE</Button>
           </div>
       </Modal>
 
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title={editTitle}>
+      <Modal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)} 
+        title={editTitle}
+        footer={<Button fullWidth onClick={handleEditNext}>UPDATE</Button>}
+      >
           <div className="space-y-4">
               <Input 
                 label="New Value"
@@ -721,11 +736,24 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                 onChange={(e) => setEditValue(e.target.value)}
                 autoFocus
               />
-              <Button fullWidth onClick={handleEditNext}>UPDATE</Button>
           </div>
       </Modal>
 
-      <Modal isOpen={showReconcileModal} onClose={() => setShowReconcileModal(false)} title="Track Adjustment">
+      <Modal 
+        isOpen={showReconcileModal} 
+        onClose={() => setShowReconcileModal(false)} 
+        title="Track Adjustment"
+        footer={
+          <div className="flex justify-between items-center gap-3">
+              <Button variant="ghost" className="h-10 text-xs flex-1" onClick={addSplit}>
+                  + Split
+              </Button>
+              <Button disabled={!isReconcileValid} onClick={confirmReconcile} className="h-10 text-sm flex-[2]">
+                  Confirm & Save
+              </Button>
+          </div>
+        }
+      >
           <div className="space-y-4">
               <div className="bg-card/50 p-3 rounded-lg border border-border/50 text-center">
                   <p className="text-xs text-textSecondary uppercase tracking-widest mb-1">
@@ -746,7 +774,8 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                               <div className="w-1/3">
                                   <input 
                                     type="number"
-                                    className="w-full bg-background border border-border rounded px-2 py-2 text-xs"
+                                    inputMode="decimal"
+                                    className="w-full bg-background border border-border rounded px-2 py-2 text-base"
                                     placeholder="Amt"
                                     value={split.amount}
                                     onChange={(e) => updateSplit(idx, 'amount', e.target.value)}
@@ -754,7 +783,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                               </div>
                               <div className="flex-1">
                                   <select 
-                                    className="w-full bg-background border border-border rounded px-2 py-2 text-xs"
+                                    className="w-full bg-background border border-border rounded px-2 py-2 text-base"
                                     value={split.category}
                                     onChange={(e) => updateSplit(idx, 'category', e.target.value)}
                                   >
@@ -783,7 +812,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                           {split.category === 'Transfer' && (
                               <div className="px-1">
                                   <select 
-                                    className="w-full bg-background border border-border rounded px-2 py-2 text-xs"
+                                    className="w-full bg-background border border-border rounded px-2 py-2 text-base"
                                     value={split.counterPartyId || ''}
                                     onChange={(e) => updateSplit(idx, 'counterPartyId', e.target.value)}
                                   >
@@ -804,22 +833,13 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
 
                           <input 
                             type="text"
-                            className="w-full bg-background border border-border rounded px-2 py-2 text-xs"
+                            className="w-full bg-background border border-border rounded px-2 py-2 text-base"
                             placeholder="Note (Optional)"
                             value={split.note}
                             onChange={(e) => updateSplit(idx, 'note', e.target.value)}
                           />
                       </div>
                   ))}
-              </div>
-
-              <div className="flex justify-between items-center pt-2">
-                  <Button variant="ghost" className="h-8 text-xs" onClick={addSplit}>
-                      + Split
-                  </Button>
-                  <Button disabled={!isReconcileValid} onClick={confirmReconcile} className="h-10 text-sm">
-                      Confirm & Save
-                  </Button>
               </div>
           </div>
       </Modal>

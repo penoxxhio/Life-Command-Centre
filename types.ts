@@ -1,3 +1,4 @@
+
 export interface UserProfile {
   name: string;
   currency: string;
@@ -96,16 +97,6 @@ export interface BankAccount {
   balance: number;
 }
 
-export interface AppleHealthData {
-  lastUpdated: string;
-  steps: number;
-  activeEnergy: number; // kcal (Move)
-  exerciseTime: number; // minutes (Exercise)
-  standHours: number; // hours (Stand)
-  distance: number; // km
-  flightsClimbed: number;
-}
-
 export interface FitnessGoals {
   weeklySessionTarget: number;
   proteinGoal: number;
@@ -116,7 +107,6 @@ export interface FitnessGoals {
   sugarLimit: number;
   sodiumLimit: number;
   sleepGoal: number;
-  // Apple Health Goals
   moveGoal: number;
   exerciseGoal: number;
   standGoal: number;
@@ -182,7 +172,6 @@ export interface AppData {
   transfers: Transfer[];
   recurringTransactions: RecurringTransaction[];
   fitnessGoals: FitnessGoals;
-  appleHealthData: AppleHealthData;
   whoopData: WhoopData;
   workouts: Workout[];
   meals: Meal[];
@@ -196,4 +185,37 @@ export enum Tab {
   FITNESS = 'FITNESS',
   NUTRITION = 'NUTRITION',
   SETTINGS = 'SETTINGS'
+}
+
+export interface HealthImportData {
+  exportDate: string;
+  daysBack: number;
+  totalDays: number;
+  days: HealthDayData[];
+}
+
+export interface HealthDayData {
+  date: string;
+  sleep: {
+    inBedHours: number;
+    asleepHours: number;
+  } | null;
+  restingHR: number | null;
+  hrvAvg: number | null;
+  steps: number;
+  activeCalories: number;
+  exerciseMinutes: number;
+  standHours: number;
+  workouts: Array<{
+    date: string;
+    startDate: string;
+    type: string;
+    activityType: string;
+    duration: number;
+    calories: number;
+    source: string;
+    avgHR: number | null;
+    maxHR: number | null;
+    strain: number | null;
+  }> | null;
 }
