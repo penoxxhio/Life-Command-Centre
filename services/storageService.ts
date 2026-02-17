@@ -77,6 +77,7 @@ export const exportData = (data: AppData, type: 'clipboard' | 'file', scope: Exp
   if (type === 'clipboard') {
     navigator.clipboard.writeText(jsonString).then(() => {
         alert(`${scope.toUpperCase()} data copied to clipboard!`);
+        localStorage.setItem('last_backup_timestamp', new Date().toISOString());
     }).catch(err => {
         console.error('Could not copy text: ', err);
     });
@@ -84,11 +85,17 @@ export const exportData = (data: AppData, type: 'clipboard' | 'file', scope: Exp
     const blob = new Blob([jsonString], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const date = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0');
+    
     a.href = url;
-    a.download = `life-command-${scope}-${date}.json`;
+    a.download = `life-command-${scope}-${date}_${time}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    
+    // Track last backup for notification logic
+    localStorage.setItem('last_backup_timestamp', now.toISOString());
   }
 };
 

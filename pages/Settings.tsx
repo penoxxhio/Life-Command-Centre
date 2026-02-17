@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { AppData, BankAccount, BudgetCategory, DebtAccount, RecurringTransaction } from '../types';
+import { AppData, BankAccount, BudgetCategory, DebtAccount, RecurringTransaction, UserProfile } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -8,12 +9,12 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { exportData, importData } from '../services/storageService';
 import { getHealthImport, saveHealthImport, clearHealthImport } from '../services/healthImportService';
-import { isAiReady, clearAiInstance } from '../services/geminiService';
+import { isAiReady, getAiUsage, UsageStats } from '../services/geminiService';
 import { requestNotificationPermission } from '../services/notificationService';
 import { 
   Download, Upload, Plus, Trash2, List, 
   ChevronRight, ArrowLeft, Wallet, Activity, Database, 
-  Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Bell, HeartPulse
+  Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Bell, HeartPulse, UserCircle
 } from 'lucide-react';
 
 interface SettingsProps {
@@ -22,11 +23,12 @@ interface SettingsProps {
   onBack: () => void;
 }
 
-type SettingsSection = 'MAIN' | 'MONEY' | 'HEALTH' | 'DATA';
+type SettingsSection = 'MAIN' | 'PROFILE' | 'MONEY' | 'HEALTH' | 'SYSTEM';
 
 export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('MAIN');
   const [aiConnected, setAiConnected] = useState(isAiReady());
+  const [aiUsage, setAiUsage] = useState<UsageStats | null>(null);
 
   // --- Modal States ---
   const [showBankModal, setShowBankModal] = useState(false);
@@ -66,21 +68,18 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   const [recDate, setRecDate] = useState(new Date().toISOString().split('T')[0]);
   const [recNote, setRecNote] = useState('');
   
-  // Dynamic Rec Fields
   const [recCategory, setRecCategory] = useState(data.budgetConfig.livingCategories[0]?.name || '');
   const [recSource, setRecSource] = useState(data.bankAccounts[0]?.id || '');
   const [recDest, setRecDest] = useState(data.bankAccounts[0]?.id || '');
   const [recIncomeSource, setRecIncomeSource] = useState('');
 
-  // API Key Input
-  const [apiKeyInput, setApiKeyInput] = useState(localStorage.getItem('gemini_api_key') || '');
-  
   // Health Import State
   const [healthJsonText, setHealthJsonText] = useState('');
   const [healthDataInfo, setHealthDataInfo] = useState<string | null>(null);
 
   useEffect(() => {
     setAiConnected(isAiReady());
+    setAiUsage(getAiUsage());
     const existingHealth = getHealthImport();
     if (existingHealth && existingHealth.exportDate) {
         setHealthDataInfo(`Last import: ${existingHealth.exportDate} • ${existingHealth.totalDays} days of data`);
@@ -112,17 +111,15 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   };
 
   const processHealthJson = (jsonString: string) => {
-      // Sanitize input: replace smart quotes (curly quotes) with standard quotes
       const sanitized = jsonString
-          .replace(/[\u201C\u201D]/g, '"') // Replace smart double quotes
-          .replace(/[\u2018\u2019]/g, "'"); // Replace smart single quotes
+          .replace(/[\u201C\u201D]/g, '"')
+          .replace(/[\u2018\u2019]/g, "'");
 
       let parsed;
       try {
           parsed = JSON.parse(sanitized);
       } catch (e) {
-          alert('Invalid JSON: Parsing failed. Please ensure the data is valid JSON format and contains no invalid characters.');
-          console.error(e);
+          alert('Invalid JSON: Parsing failed. Please ensure the data is valid JSON format.');
           return;
       }
 
@@ -134,7 +131,6 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
               window.location.reload();
           } catch (e: any) {
               alert(`Import Failed: ${e.message || 'Unknown storage error'}`);
-              console.error(e);
           }
       } else {
           alert('Invalid Data Structure: JSON must contain "exportDate" and a "days" array.');
@@ -146,7 +142,6 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           alert('Please paste JSON data first.');
           return;
       }
-      // Small delay to allow UI to update if blocked by heavy parse
       setTimeout(() => processHealthJson(healthJsonText), 10);
   };
 
@@ -159,7 +154,6 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       } catch (e) {
           alert("Failed to read file.");
       }
-      // Reset input
       e.target.value = '';
   };
 
@@ -179,22 +173,22 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       });
   };
 
+  const updateProfile = (key: keyof UserProfile, value: any) => {
+    updateData({
+      userProfile: {
+        ...data.userProfile,
+        [key]: value
+      }
+    });
+  };
+
   const enableNotifications = async () => {
       const granted = await requestNotificationPermission();
       if (granted) {
-          alert("Notifications enabled! You'll receive reminders at 9AM, 1PM, and 8PM if the app is open.");
+          alert("Notifications enabled! Reminders active at 9AM, 1PM, and 8PM.");
       } else {
-          alert("Permission denied. Check your browser settings.");
+          alert("Permission denied. Check browser settings.");
       }
-  };
-
-  const saveApiKey = () => {
-    if (apiKeyInput.length < 10) return;
-    localStorage.setItem('gemini_api_key', apiKeyInput);
-    clearAiInstance();
-    
-    alert('API Key saved! AI features are now active.');
-    window.location.reload();
   };
 
   // Money Handlers
@@ -291,10 +285,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       const cat = cats[activeCategoryIndex];
       const subs = cat.subcategories ? [...cat.subcategories, subcatInput] : [subcatInput];
       cats[activeCategoryIndex] = { ...cat, subcategories: subs };
-      
-      updateData({
-          budgetConfig: { ...data.budgetConfig, livingCategories: cats }
-      });
+      updateData({ budgetConfig: { ...data.budgetConfig, livingCategories: cats } });
       setSubcatInput('');
   };
 
@@ -303,19 +294,14 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       const cats = [...data.budgetConfig.livingCategories];
       const cat = cats[activeCategoryIndex];
       if (!cat.subcategories) return;
-
       const subs = [...cat.subcategories];
       subs.splice(subIdx, 1);
       cats[activeCategoryIndex] = { ...cat, subcategories: subs };
-      
-      updateData({
-          budgetConfig: { ...data.budgetConfig, livingCategories: cats }
-      });
+      updateData({ budgetConfig: { ...data.budgetConfig, livingCategories: cats } });
   };
 
   const addRecurring = () => {
       if (!recAmount) return;
-
       const newRule: RecurringTransaction = {
           id: Math.random().toString(36).substr(2, 9),
           type: recType,
@@ -325,14 +311,11 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           amount: parseFloat(recAmount),
           note: recNote,
           active: true,
-          // Conditionally add fields
           ...(recType === 'expense' && { categoryName: recCategory, sourceAccountId: recSource }),
           ...(recType === 'income' && { sourceName: recIncomeSource, toAccountId: recDest }),
           ...(recType === 'transfer' && { sourceAccountId: recSource, toAccountId: recDest })
       };
-
-      const existingRules = data.recurringTransactions || [];
-      updateData({ recurringTransactions: [...existingRules, newRule] });
+      updateData({ recurringTransactions: [...(data.recurringTransactions || []), newRule] });
       setShowRecurringModal(false);
       setRecAmount('');
       setRecNote('');
@@ -351,13 +334,13 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
 
   // --- Sub-Components ---
 
-  const MenuButton = ({ icon: Icon, label, onClick, subtext }: any) => (
+  const MenuButton = ({ icon: Icon, label, onClick, subtext, alert }: any) => (
     <button 
       onClick={onClick}
       className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:bg-border/30 transition-all active:scale-[0.98] group mb-3"
     >
       <div className="flex items-center gap-4">
-        <div className="p-2.5 bg-background rounded-lg text-accent group-hover:text-white transition-colors">
+        <div className={`p-2.5 rounded-lg transition-colors ${alert ? 'bg-alert/10 text-alert' : 'bg-background text-accent group-hover:text-white'}`}>
           <Icon size={20} />
         </div>
         <div className="text-left">
@@ -369,7 +352,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
     </button>
   );
 
-  // --- Render Views ---
+  // --- Views ---
 
   const renderMainMenu = () => (
     <div className="space-y-1 animate-slide-up">
@@ -379,47 +362,106 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
        </div>
 
        <MenuButton 
+          icon={UserCircle} 
+          label="Personal Profile" 
+          subtext="Name, Currency, Schedule"
+          onClick={() => setActiveSection('PROFILE')} 
+       />
+       <MenuButton 
           icon={Wallet} 
           label="Money & Assets" 
-          subtext="Banks, Debts, Rules"
+          subtext="Banks, Debts, Recurring"
           onClick={() => setActiveSection('MONEY')} 
        />
        <MenuButton 
           icon={Activity} 
           label="Health & Fitness" 
-          subtext="Macros, Goals, Sleep"
+          subtext="Macros, Targets, Import"
           onClick={() => setActiveSection('HEALTH')} 
        />
        <MenuButton 
           icon={Database} 
-          label="Data & Backup" 
-          subtext="Import, Export, Reset"
-          onClick={() => setActiveSection('DATA')} 
+          label="System & AI" 
+          subtext="API Status, Backup, Reset"
+          onClick={() => setActiveSection('SYSTEM')} 
        />
 
-       {/* AI Status Mini Card */}
-       <div className={`mt-4 p-4 rounded-xl border flex items-center justify-between transition-colors ${aiConnected ? 'bg-accent/5 border-accent/20' : 'bg-alert/5 border-alert/20'}`}>
-          <div className="flex items-center gap-3">
-             <Sparkles size={20} className={aiConnected ? 'text-accent' : 'text-textMuted'} />
-             <div>
-                <p className="text-xs font-bold text-textPrimary">AI Engine Status</p>
-                <p className="text-[10px] text-textSecondary">{aiConnected ? 'Connected' : 'Disconnected (Key Missing)'}</p>
-             </div>
-          </div>
-          {aiConnected ? <CheckCircle2 size={16} className="text-accent" /> : <AlertCircle size={16} className="text-alert" />}
-       </div>
+       {/* AI Usage Indicator */}
+       {aiUsage && aiConnected && (
+         <div className="mt-6 p-4 bg-card border border-border rounded-xl">
+            <div className="flex justify-between items-center mb-2">
+               <span className="text-[10px] text-textSecondary font-mono uppercase tracking-widest">Gemini API Usage</span>
+               <div className="flex items-center gap-2">
+                 {aiUsage.isRateLimited && <span className="text-[10px] font-bold text-alert animate-pulse">RATE LIMITED</span>}
+                 <span className="text-[10px] font-mono font-bold text-accent">{aiUsage.quotaLimit - aiUsage.todayCount} remaining today</span>
+               </div>
+            </div>
+            <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
+               <div 
+                 className={`h-full transition-all duration-1000 ${aiUsage.isRateLimited ? 'bg-alert' : 'bg-accent'}`} 
+                 style={{ width: `${Math.min(100, (aiUsage.todayCount / aiUsage.quotaLimit) * 100)}%` }}
+               />
+            </div>
+            {aiUsage.isRateLimited && (
+              <p className="text-[10px] text-alert mt-2 text-center bg-alert/10 py-1 rounded">
+                API busy. Try again in {aiUsage.retryAfterSeconds}s or wait a minute.
+              </p>
+            )}
+            <p className="text-[10px] text-textMuted mt-2 text-center">Standard Free Tier: {aiUsage.quotaLimit} requests/day</p>
+         </div>
+       )}
 
        <div className="pt-8 text-center">
-          <p className="text-[10px] text-textSecondary font-mono uppercase tracking-widest opacity-40">Life Command Center v2.4</p>
+          <p className="text-[10px] text-textSecondary font-mono uppercase tracking-widest opacity-40">System Core v2.5.2</p>
       </div>
+    </div>
+  );
+
+  const renderProfileSettings = () => (
+    <div className="space-y-6 animate-slide-up">
+      <Card title="IDENTITY">
+         <div className="space-y-4">
+            <Input 
+              label="Display Name" 
+              value={data.userProfile.name} 
+              onChange={e => updateProfile('name', e.target.value)} 
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <Select 
+                label="Currency Symbol" 
+                value={data.userProfile.currency} 
+                onChange={e => updateProfile('currency', e.target.value)}
+              >
+                <option value="$">USD ($)</option>
+                <option value="€">EUR (€)</option>
+                <option value="£">GBP (£)</option>
+                <option value="AED">AED (AED)</option>
+                <option value="¥">JPY (¥)</option>
+              </Select>
+              <Select 
+                label="Payday" 
+                value={data.userProfile.payday.toString()} 
+                onChange={e => updateProfile('payday', parseInt(e.target.value))}
+              >
+                 {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+              </Select>
+            </div>
+         </div>
+      </Card>
+
+      <Card title="WORK SCHEDULE">
+         <div className="grid grid-cols-2 gap-4">
+            <Input label="Mon-Thu" value={data.userProfile.workSchedule.regular} onChange={e => updateProfile('workSchedule', {...data.userProfile.workSchedule, regular: e.target.value})} />
+            <Input label="Friday" value={data.userProfile.workSchedule.friday} onChange={e => updateProfile('workSchedule', {...data.userProfile.workSchedule, friday: e.target.value})} />
+         </div>
+         <p className="text-[10px] text-textMuted mt-3">Used for habit reminders and productivity insights.</p>
+      </Card>
     </div>
   );
 
   const renderMoneySettings = () => (
     <div className="space-y-6 animate-slide-up pb-20">
-      <Card title="BANK ACCOUNTS" action={
-          <button onClick={() => setShowBankModal(true)} className="text-accent hover:text-white p-1 bg-card border border-border rounded"><Plus size={16} /></button>
-      }>
+      <Card title="BANK ACCOUNTS" action={<button onClick={() => setShowBankModal(true)} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
           <div className="space-y-2">
               {data.bankAccounts.map((acc, idx) => (
                   <div key={idx} className="flex justify-between items-center bg-background/40 p-3 rounded-lg border border-border/50">
@@ -427,16 +469,17 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
                           <Landmark size={16} className="text-textSecondary" />
                           <span className="text-sm font-medium">{acc.name}</span>
                       </div>
-                      <button onClick={() => confirmRemoveBank(idx)} className="text-textSecondary hover:text-alert p-3"><Trash2 size={14}/></button>
+                      <div className="flex items-center gap-3">
+                          <span className="font-mono text-sm text-textPrimary">{data.userProfile.currency}{acc.balance.toLocaleString()}</span>
+                          <button onClick={() => confirmRemoveBank(idx)} className="text-textSecondary hover:text-alert p-2"><Trash2 size={14}/></button>
+                      </div>
                   </div>
               ))}
-              {data.bankAccounts.length === 0 && <p className="text-xs text-textSecondary text-center py-2">No accounts added.</p>}
+              {data.bankAccounts.length === 0 && <p className="text-center text-xs text-textMuted py-4">No accounts added yet.</p>}
           </div>
       </Card>
 
-      <Card title="DEBT ACCOUNTS" action={
-          <button onClick={() => setShowDebtModal(true)} className="text-accent hover:text-white p-1 bg-card border border-border rounded"><Plus size={16} /></button>
-      }>
+      <Card title="DEBT ACCOUNTS" action={<button onClick={() => setShowDebtModal(true)} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
           <div className="space-y-2">
               {data.debtAccounts.map((acc) => (
                   <div key={acc.id} className="flex justify-between items-center bg-background/40 p-3 rounded-lg border border-border/50">
@@ -444,47 +487,47 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
                           <CreditCard size={16} style={{color: acc.color}} />
                           <span className="text-sm font-bold" style={{color: acc.color}}>{acc.name}</span>
                       </div>
-                      <button onClick={() => confirmRemoveDebt(acc.id)} className="text-textSecondary hover:text-alert p-3"><Trash2 size={14}/></button>
+                      <div className="flex items-center gap-3">
+                         <span className="font-mono text-sm text-alert">{data.userProfile.currency}{acc.currentBalance.toLocaleString()}</span>
+                         <button onClick={() => confirmRemoveDebt(acc.id)} className="text-textSecondary hover:text-alert p-2"><Trash2 size={14}/></button>
+                      </div>
                   </div>
               ))}
+              {data.debtAccounts.length === 0 && <p className="text-center text-xs text-textMuted py-4">Debt free! Good job.</p>}
           </div>
       </Card>
 
-      <Card title="RECURRING RULES" action={
-          <button onClick={() => setShowRecurringModal(true)} className="text-accent hover:text-white p-1 bg-card border border-border rounded"><Plus size={16} /></button>
-      }>
+      <Card title="RECURRING RULES" action={<button onClick={() => setShowRecurringModal(true)} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
           <div className="space-y-2">
               {data.recurringTransactions?.map((rule) => (
                   <div key={rule.id} className="flex justify-between items-center bg-background/40 p-3 rounded-lg border border-border/50">
                       <div className="flex items-center gap-3">
-                          <RefreshCw size={16} className="text-textSecondary" />
+                          <div className={`p-2 rounded-full ${rule.type === 'income' ? 'bg-accent/10 text-accent' : rule.type === 'transfer' ? 'bg-info/10 text-info' : 'bg-alert/10 text-alert'}`}>
+                            <RefreshCw size={14} />
+                          </div>
                           <div>
                               <p className="text-sm font-bold text-textPrimary capitalize">{rule.note || rule.type}</p>
-                              <p className="text-[10px] text-textSecondary capitalize">{rule.frequency} • {rule.amount}</p>
+                              <p className="text-[10px] text-textSecondary capitalize">{rule.frequency} • {data.userProfile.currency}{rule.amount}</p>
                           </div>
                       </div>
-                      <button onClick={() => confirmRemoveRecurring(rule.id)} className="text-textSecondary hover:text-alert p-3"><Trash2 size={14}/></button>
+                      <button onClick={() => confirmRemoveRecurring(rule.id)} className="text-textSecondary hover:text-alert p-2"><Trash2 size={14}/></button>
                   </div>
               ))}
-              {(!data.recurringTransactions || data.recurringTransactions.length === 0) && (
-                  <p className="text-xs text-textSecondary text-center py-2">No recurring rules.</p>
-              )}
+              {(!data.recurringTransactions || data.recurringTransactions.length === 0) && <p className="text-center text-xs text-textMuted py-4">No recurring transactions.</p>}
           </div>
       </Card>
 
-      <Card title="BUDGET CATEGORIES" action={
-          <button onClick={() => setShowCatModal(true)} className="text-accent hover:text-white p-1 bg-card border border-border rounded"><Plus size={16} /></button>
-      }>
-          <div className="space-y-2">
+      <Card title="BUDGET CATEGORIES" action={<button onClick={() => setShowCatModal(true)} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
+          <div className="grid grid-cols-2 gap-2">
               {data.budgetConfig.livingCategories.map((cat, idx) => (
                   <div key={idx} className="flex justify-between items-center bg-background/40 p-3 rounded-lg border border-border/50">
-                      <div className="flex items-center gap-3">
-                          <span className="text-lg">{cat.icon}</span>
-                          <span className="text-sm font-medium">{cat.name}</span>
+                      <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="text-base shrink-0">{cat.icon}</span>
+                          <span className="text-[11px] font-medium truncate">{cat.name}</span>
                       </div>
-                      <div className="flex gap-3">
-                          <button onClick={() => openSubcatModal(idx)} className="text-textSecondary hover:text-white p-2"><List size={14}/></button>
-                          <button onClick={() => confirmRemoveCategory(idx)} className="text-textSecondary hover:text-alert p-2"><Trash2 size={14}/></button>
+                      <div className="flex gap-1 shrink-0">
+                          <button onClick={() => openSubcatModal(idx)} className="text-textSecondary hover:text-white p-1.5"><List size={12}/></button>
+                          <button onClick={() => confirmRemoveCategory(idx)} className="text-textSecondary hover:text-alert p-1.5"><Trash2 size={12}/></button>
                       </div>
                   </div>
               ))}
@@ -496,196 +539,119 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   const renderHealthSettings = () => (
     <div className="space-y-6 animate-slide-up pb-20">
       <Card title="NUTRITION TARGETS">
-          <div className="flex items-center gap-2 mb-4 text-accent">
-            <Utensils size={16} />
-            <span className="text-sm font-bold">Daily Macros</span>
-          </div>
           <div className="grid grid-cols-2 gap-4">
-              <Input 
-                  label="Calories"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.calorieGoal} onChange={e => updateGoal('calorieGoal', e.target.value)} 
-              />
-              <Input 
-                  label="Protein (g)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.proteinGoal} onChange={e => updateGoal('proteinGoal', e.target.value)} 
-              />
-              <Input 
-                  label="Carbs (g)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.carbGoal} onChange={e => updateGoal('carbGoal', e.target.value)} 
-              />
-              <Input 
-                  label="Fats (g)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.fatGoal} onChange={e => updateGoal('fatGoal', e.target.value)} 
-              />
-              <Input 
-                  label="Fiber (g)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.fiberGoal} onChange={e => updateGoal('fiberGoal', e.target.value)} 
-              />
-              <Input 
-                  label="Sugar Limit (g)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.sugarLimit} onChange={e => updateGoal('sugarLimit', e.target.value)} 
-              />
+              <Input label="Calories" type="number" inputMode="numeric" value={data.fitnessGoals.calorieGoal} onChange={e => updateGoal('calorieGoal', e.target.value)} />
+              <Input label="Protein (g)" type="number" inputMode="numeric" value={data.fitnessGoals.proteinGoal} onChange={e => updateGoal('proteinGoal', e.target.value)} />
+              <Input label="Carbs (g)" type="number" inputMode="numeric" value={data.fitnessGoals.carbGoal} onChange={e => updateGoal('carbGoal', e.target.value)} />
+              <Input label="Fats (g)" type="number" inputMode="numeric" value={data.fitnessGoals.fatGoal} onChange={e => updateGoal('fatGoal', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+              <Input label="Fiber (g)" type="number" inputMode="numeric" value={data.fitnessGoals.fiberGoal} onChange={e => updateGoal('fiberGoal', e.target.value)} />
+              <Input label="Sugar (g)" type="number" inputMode="numeric" value={data.fitnessGoals.sugarLimit} onChange={e => updateGoal('sugarLimit', e.target.value)} />
           </div>
       </Card>
 
-      <Card title="FITNESS GOALS">
-          <div className="flex items-center gap-2 mb-4 text-info">
-            <Target size={16} />
-            <span className="text-sm font-bold">Activity & Recovery</span>
-          </div>
+      <Card title="ACTIVITY GOALS">
           <div className="grid grid-cols-2 gap-4">
-              <Input 
-                  label="Weekly Workouts"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.weeklySessionTarget} onChange={e => updateGoal('weeklySessionTarget', e.target.value)} 
-              />
-              <Input 
-                  label="Sleep Goal (hrs)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.sleepGoal} onChange={e => updateGoal('sleepGoal', e.target.value)} 
-              />
-              <Input 
-                  label="Apple Move (kcal)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.moveGoal} onChange={e => updateGoal('moveGoal', e.target.value)} 
-              />
-              <Input 
-                  label="Apple Exercise (min)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.exerciseGoal} onChange={e => updateGoal('exerciseGoal', e.target.value)} 
-              />
-              <Input 
-                  label="Apple Stand (hrs)"
-                  type="number" inputMode="numeric"
-                  value={data.fitnessGoals.standGoal} onChange={e => updateGoal('standGoal', e.target.value)} 
-              />
+              <Input label="Weekly Training" type="number" value={data.fitnessGoals.weeklySessionTarget} onChange={e => updateGoal('weeklySessionTarget', e.target.value)} />
+              <Input label="Sleep (hrs)" type="number" value={data.fitnessGoals.sleepGoal} onChange={e => updateGoal('sleepGoal', e.target.value)} />
+              <Input label="Daily Steps" type="number" value={data.fitnessGoals.stepGoal} onChange={e => updateGoal('stepGoal', e.target.value)} />
+              <Input label="Move (kcal)" type="number" value={data.fitnessGoals.moveGoal} onChange={e => updateGoal('moveGoal', e.target.value)} />
           </div>
-      </Card>
-    </div>
-  );
-
-  const renderDataSettings = () => (
-    <div className="space-y-6 animate-slide-up">
-      <Card title="NOTIFICATIONS">
-          <p className="text-xs text-textSecondary mb-4 leading-relaxed">
-             Get 3 daily reminders (9AM, 1PM, 8PM) to log your meals and spending. Requires the app to be open in a browser tab.
-          </p>
-          <Button variant="ghost" fullWidth onClick={enableNotifications}>
-              <Bell size={16} className="mr-2" /> ENABLE NOTIFICATIONS
-          </Button>
       </Card>
 
       <Card title="HEALTH DATA IMPORT" action={<HeartPulse size={16} className="text-alert"/>}>
-          <p className="text-xs font-mono text-accent mb-2">{healthDataInfo}</p>
-          <p className="text-xs text-textSecondary mb-4 leading-relaxed">
-             Paste your pre-processed health data JSON to populate sleep, heart rate, HRV, steps, and workout history.
-          </p>
-          
-          <div className="space-y-3">
-              <textarea 
-                  className="w-full bg-background/50 border border-border rounded-lg p-3 text-xs font-mono h-32 focus:ring-2 focus:ring-accent/50 outline-none"
-                  placeholder="Paste health data JSON here..."
-                  value={healthJsonText}
-                  onChange={e => setHealthJsonText(e.target.value)}
-              />
-              <Button fullWidth onClick={handlePasteHealthImport}>
-                  IMPORT PASTED DATA
-              </Button>
-              
-              <div className="relative">
-                  <Button variant="secondary" fullWidth className="relative z-0">
-                      Or upload .json file
-                  </Button>
-                  <input 
-                      type="file" 
-                      accept=".json"
-                      className="absolute inset-0 opacity-0 z-10 cursor-pointer"
-                      onChange={handleHealthFileImport}
-                  />
-              </div>
-              
-              <Button variant="ghost" className="text-alert hover:text-alert hover:bg-alert/10 mt-2" fullWidth onClick={handleClearHealth}>
-                  Clear imported data
-              </Button>
+          <p className="text-[10px] text-accent font-mono mb-2">{healthDataInfo}</p>
+          <p className="text-[10px] text-textSecondary mb-3">Paste your pre-processed health JSON here to sync steps, sleep, and activity history.</p>
+          <textarea 
+            className="w-full bg-background/50 border border-border rounded-lg p-3 text-[10px] font-mono h-24 mb-3 focus:ring-2 focus:ring-accent/50 outline-none"
+            placeholder='{ "exportDate": "...", "days": [...] }'
+            value={healthJsonText}
+            onChange={e => setHealthJsonText(e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Button fullWidth onClick={handlePasteHealthImport}>SYNC JSON</Button>
+            <div className="relative">
+                <Button variant="secondary" fullWidth>UPLOAD FILE</Button>
+                <input type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleHealthFileImport} />
+            </div>
           </div>
-      </Card>
-
-      <Card title="AI ENGINE CONFIG">
-          <div className="flex items-center gap-3 mb-3">
-             <Sparkles size={18} className={aiConnected ? 'text-accent' : 'text-alert'} />
-             <span className="text-sm font-bold">Gemini Status: {aiConnected ? 'CONNECTED' : 'DISCONNECTED'}</span>
-          </div>
-          
-          <div className="space-y-3 mb-2">
-            <Input 
-                type="password"
-                placeholder="Paste Gemini API Key here"
-                value={apiKeyInput}
-                onChange={e => setApiKeyInput(e.target.value)}
-                onBlur={saveApiKey}
-            />
-            <Button fullWidth onClick={saveApiKey} disabled={apiKeyInput.length < 10}>
-                SAVE API KEY
-            </Button>
-          </div>
-          
-          <p className="text-[10px] text-textSecondary mt-2">
-             {aiConnected 
-                ? "AI engine connected. Food Analysis, Workout Parsing, and Protein suggestions are active."
-                : "Enter your Gemini API key below to enable AI features."}
-          </p>
-          <p className="text-[10px] text-textSecondary mt-1">
-            Get a free key at <a href="https://ai.google.dev" target="_blank" className="text-accent hover:underline">ai.google.dev</a>. Stored only in your browser.
-          </p>
-      </Card>
-
-      <Card title="BACKUP & RESTORE">
-          <p className="text-xs text-textSecondary mb-4 leading-relaxed">
-            Export your entire database to a JSON file for backup. You can restore it later on any device.
-          </p>
-          <div className="space-y-3">
-              <Button variant="secondary" fullWidth onClick={() => exportData(data, 'file')}>
-                  <Download size={16} className="mr-2" /> EXPORT FULL BACKUP
-              </Button>
-              <Button variant="ghost" fullWidth onClick={handleImport}>
-                  <Upload size={16} className="mr-2" /> IMPORT BACKUP
-              </Button>
-          </div>
+          <Button variant="ghost" fullWidth onClick={handleClearHealth} className="text-alert mt-2 text-[11px] h-8 min-h-0">CLEAR HISTORY</Button>
       </Card>
     </div>
   );
 
+  const renderSystemSettings = () => (
+    <div className="space-y-6 animate-slide-up pb-20">
+      <Card title="AI ENGINE CONFIG">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Sparkles size={18} className={aiConnected ? 'text-accent' : 'text-alert'} />
+              <span className="text-xs font-bold uppercase tracking-tight">Status: {aiConnected ? 'Operational' : 'API Key Missing'}</span>
+            </div>
+            {aiConnected && <CheckCircle2 size={16} className="text-accent" />}
+          </div>
+          {/* @google/genai guidelines: Management UI for API keys is prohibited. Relying on process.env.API_KEY */}
+          <div className="p-3 bg-ai/5 border border-ai/20 rounded-lg">
+             <p className="text-[10px] text-textPrimary font-bold mb-1">Service Information</p>
+             <p className="text-[10px] text-textSecondary leading-relaxed">System is strictly utilizing the pre-configured <code className="text-ai font-bold">process.env.API_KEY</code> for all Gemini AI operations. Ensure your deployment environment has this key correctly set.</p>
+          </div>
+      </Card>
+
+      <Card title="SYSTEM NOTIFICATIONS">
+          <p className="text-[10px] text-textSecondary mb-4">Enable 3x daily log reminders (09:00, 13:00, 20:00) to keep your command center up to date.</p>
+          <Button variant="secondary" fullWidth onClick={enableNotifications}>
+              <Bell size={16} className="mr-2" /> REQUEST PERMISSION
+          </Button>
+      </Card>
+
+      <Card title="LOCAL STORAGE MANAGEMENT">
+          <p className="text-[10px] text-textSecondary mb-4 leading-relaxed">All data is stored exclusively in your browser. Export frequently to prevent data loss or to sync across devices.</p>
+          <div className="grid grid-cols-2 gap-3">
+              <Button variant="secondary" fullWidth onClick={() => exportData(data, 'file')}>
+                  <Download size={16} className="mr-2" /> EXPORT ALL
+              </Button>
+              <Button variant="ghost" fullWidth onClick={handleImport}>
+                  <Upload size={16} className="mr-2" /> RESTORE
+              </Button>
+          </div>
+          <Button variant="danger" fullWidth onClick={() => {
+              if (confirm('Delete all app data? This cannot be undone.')) {
+                localStorage.clear();
+                window.location.reload();
+              }
+          }} className="mt-4 text-[11px] h-10 min-h-0">
+              PURGE LOCAL DATABASE
+          </Button>
+      </Card>
+    </div>
+  );
+
+  // Consolidate header logic to fix TypeScript comparison error on activeSection === 'MAIN'
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center mb-4">
          {activeSection !== 'MAIN' && (
-             <button onClick={() => setActiveSection('MAIN')} className="mr-3 p-2 hover:bg-card rounded-full transition-colors text-textSecondary">
-                 <ArrowLeft size={20} />
-             </button>
-         )}
-         {activeSection !== 'MAIN' && (
-             <h2 className="text-lg font-bold text-textPrimary capitalize">
-                 {activeSection === 'MONEY' ? 'Money Management' : activeSection === 'HEALTH' ? 'Health Goals' : 'Data Management'}
-             </h2>
+             <>
+                 <button onClick={() => setActiveSection('MAIN')} className="mr-3 p-2 hover:bg-card rounded-full transition-colors text-textSecondary active:scale-90">
+                     <ArrowLeft size={20} />
+                 </button>
+                 <h2 className="text-lg font-bold text-textPrimary capitalize">
+                     {activeSection === 'PROFILE' ? 'Personal Profile' :
+                      activeSection === 'MONEY' ? 'Money Management' :
+                      activeSection === 'HEALTH' ? 'Health & Fitness' : 'System & AI'}
+                 </h2>
+             </>
          )}
       </div>
 
-      {/* Content */}
-      <div className="flex-1">
+      <div className="flex-1 overflow-y-auto no-scrollbar">
           {activeSection === 'MAIN' && renderMainMenu()}
+          {activeSection === 'PROFILE' && renderProfileSettings()}
           {activeSection === 'MONEY' && renderMoneySettings()}
           {activeSection === 'HEALTH' && renderHealthSettings()}
-          {activeSection === 'DATA' && renderDataSettings()}
+          {activeSection === 'SYSTEM' && renderSystemSettings()}
       </div>
-
-      {/* --- MODALS --- */}
 
       <ConfirmDialog 
         isOpen={confirmConfig.isOpen} 
@@ -695,189 +661,86 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
         onConfirm={confirmConfig.onConfirm} 
       />
 
-      {/* Bank Modal */}
+      {/* Shared Modals for Data Entry */}
       <Modal isOpen={showBankModal} onClose={() => setShowBankModal(false)} title="Add Bank Account">
           <div className="space-y-4">
-              <Input 
-                  label="Account Name"
-                  value={bankName} onChange={e => setBankName(e.target.value)} 
-              />
-              <Input 
-                  label="Current Balance"
-                  type="number" inputMode="decimal"
-                  value={bankBalance} onChange={e => setBankBalance(e.target.value)} 
-              />
-              <Button fullWidth onClick={addBankAccount} className="mt-2">Add Account</Button>
+              <Input label="Account Name" placeholder="e.g. Primary Savings" value={bankName} onChange={e => setBankName(e.target.value)} />
+              <Input label="Starting Balance" type="number" inputMode="decimal" placeholder="0.00" value={bankBalance} onChange={e => setBankBalance(e.target.value)} />
+              <Button fullWidth onClick={addBankAccount} className="mt-2">CREATE ACCOUNT</Button>
           </div>
       </Modal>
 
-      {/* Debt Modal */}
-      <Modal isOpen={showDebtModal} onClose={() => setShowDebtModal(false)} title="Add Debt Account">
+      <Modal isOpen={showDebtModal} onClose={() => setShowDebtModal(false)} title="Add Debt/Credit Card">
           <div className="space-y-4">
-              <Input 
-                  label="Card/Loan Name"
-                  value={debtName} onChange={e => setDebtName(e.target.value)} 
-              />
-              <Input 
-                  label="Current Balance"
-                  type="number" inputMode="decimal"
-                  value={debtBalance} onChange={e => setDebtBalance(e.target.value)} 
-              />
-              <Input 
-                  label="Starting Balance (Limit)"
-                  type="number" inputMode="decimal"
-                  value={debtStart} onChange={e => setDebtStart(e.target.value)} 
-              />
+              <Input label="Provider Name" placeholder="e.g. Amex Platinum" value={debtName} onChange={e => setDebtName(e.target.value)} />
+              <Input label="Current Balance" type="number" inputMode="decimal" value={debtBalance} onChange={e => setDebtBalance(e.target.value)} />
+              <Input label="Starting Limit" type="number" inputMode="decimal" value={debtStart} onChange={e => setDebtStart(e.target.value)} />
               <div>
-                <label className="block text-xs text-textSecondary mb-1.5 ml-1 font-medium">Color Label</label>
-                <div className="flex gap-3">
-                    {['#6B8EAF', '#9A6BB5', '#C4943A', '#C45C3A', '#5CB870'].map(c => (
-                        <div key={c} onClick={() => setDebtColor(c)} 
-                             className={`w-8 h-8 rounded-full cursor-pointer transition-transform active:scale-95 ${debtColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-background' : 'opacity-70 hover:opacity-100'}`} 
-                             style={{backgroundColor: c}} />
+                <label className="block text-xs text-textSecondary mb-2 font-medium">Category Color</label>
+                <div className="flex justify-between">
+                    {['#F85149', '#D29922', '#58A6FF', '#A371F7', '#5CB870', '#8B949E'].map(c => (
+                        <div key={c} onClick={() => setDebtColor(c)} className={`w-10 h-10 rounded-full cursor-pointer transition-all active:scale-90 ${debtColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-background' : 'opacity-40 hover:opacity-100'}`} style={{backgroundColor: c}} />
                     ))}
                 </div>
               </div>
-              <Button fullWidth onClick={addDebtAccount} className="mt-2">Add Debt</Button>
+              <Button fullWidth onClick={addDebtAccount} className="mt-2">ADD DEBT</Button>
           </div>
       </Modal>
 
-      {/* Category Modal */}
-      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title="Add Category">
+      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title="Add Spending Category">
           <div className="space-y-4">
-              <Input 
-                  label="Name"
-                  value={catName} onChange={e => setCatName(e.target.value)} 
-              />
-              <Input 
-                  label="Budget Limit"
-                  type="number" inputMode="decimal"
-                  value={catBudget} onChange={e => setCatBudget(e.target.value)} 
-              />
-              <Input 
-                  label="Icon (Emoji)"
-                  value={catIcon} onChange={e => setCatIcon(e.target.value)} 
-              />
-              <Button fullWidth onClick={addCategory} className="mt-2">Add Category</Button>
+              <Input label="Category Name" placeholder="e.g. Subscriptions" value={catName} onChange={e => setCatName(e.target.value)} />
+              <Input label="Monthly Budget" type="number" inputMode="decimal" value={catBudget} onChange={e => setCatBudget(e.target.value)} />
+              <Input label="Emoji Icon" placeholder="💰" value={catIcon} onChange={e => setCatIcon(e.target.value)} />
+              <Button fullWidth onClick={addCategory} className="mt-2">CREATE CATEGORY</Button>
           </div>
       </Modal>
 
-      {/* Subcategory Modal */}
       <Modal isOpen={showSubcatModal} onClose={() => setShowSubcatModal(false)} title="Manage Subcategories">
           <div className="space-y-4">
-              {activeCategoryIndex !== null && data.budgetConfig.livingCategories[activeCategoryIndex] && (
+              {activeCategoryIndex !== null && (
                   <>
-                      <h3 className="text-center font-bold text-accent">{data.budgetConfig.livingCategories[activeCategoryIndex].name}</h3>
                       <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar bg-background/30 p-2 rounded-lg">
                           {data.budgetConfig.livingCategories[activeCategoryIndex].subcategories?.map((sub, idx) => (
-                              <div key={idx} className="flex justify-between items-center bg-card p-3 rounded-md border border-border/50">
-                                  <span className="text-sm">{sub}</span>
-                                  <button onClick={() => removeSubcategory(idx)} className="text-alert opacity-80 hover:opacity-100"><Trash2 size={14}/></button>
+                              <div key={idx} className="flex justify-between items-center bg-card p-3 rounded-xl border border-border/50 shadow-sm animate-fade-in">
+                                  <span className="text-xs font-bold">{sub}</span>
+                                  <button onClick={() => removeSubcategory(idx)} className="text-alert p-1 hover:bg-alert/10 rounded transition-colors"><Trash2 size={14}/></button>
                               </div>
                           ))}
-                          {(!data.budgetConfig.livingCategories[activeCategoryIndex].subcategories || data.budgetConfig.livingCategories[activeCategoryIndex].subcategories?.length === 0) && (
-                              <p className="text-center text-xs text-textSecondary py-4">No subcategories yet.</p>
+                          {(!data.budgetConfig.livingCategories[activeCategoryIndex].subcategories || data.budgetConfig.livingCategories[activeCategoryIndex].subcategories.length === 0) && (
+                            <p className="text-center text-[10px] text-textMuted py-4">No subcategories defined.</p>
                           )}
                       </div>
-                      <div className="flex gap-2 pt-2 border-t border-border/30">
-                          <div className="flex-1">
-                              <Input 
-                                  placeholder="New Subcategory" 
-                                  value={subcatInput} 
-                                  onChange={e => setSubcatInput(e.target.value)} 
-                              />
-                          </div>
-                          <Button onClick={addSubcategory} className="!w-[44px] !px-0 mt-0"><Plus size={18}/></Button>
+                      <div className="flex gap-2">
+                          <Input placeholder="Add sub..." value={subcatInput} onChange={e => setSubcatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSubcategory()} />
+                          <Button onClick={addSubcategory} className="px-3 shrink-0 h-[44px]"><Plus size={18}/></Button>
                       </div>
                   </>
               )}
           </div>
       </Modal>
 
-      {/* Recurring Rule Modal */}
-      <Modal isOpen={showRecurringModal} onClose={() => setShowRecurringModal(false)} title="Add Recurring Rule">
+      <Modal isOpen={showRecurringModal} onClose={() => setShowRecurringModal(false)} title="Create Recurring Rule">
           <div className="space-y-4">
-              <Select 
-                  label="Type"
-                  value={recType} onChange={e => setRecType(e.target.value as any)}
-              >
+              <Select label="Transaction Type" value={recType} onChange={e => setRecType(e.target.value as any)}>
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
                   <option value="transfer">Transfer</option>
               </Select>
-
-              <Select 
-                  label="Frequency"
-                  value={recFrequency} onChange={e => setRecFrequency(e.target.value as any)}
-              >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-              </Select>
-
-              <Input 
-                  label="Start Date (First Due)"
-                  type="date"
-                  value={recDate} onChange={e => setRecDate(e.target.value)}
-              />
-
-              <Input 
-                  label="Amount"
-                  type="number" inputMode="decimal"
-                  value={recAmount} onChange={e => setRecAmount(e.target.value)}
-              />
-
-              <Input 
-                  label="Note"
-                  value={recNote} onChange={e => setRecNote(e.target.value)}
-                  placeholder="e.g. Rent, Netflix..."
-              />
-
-              {/* Dynamic Fields */}
-              {recType === 'expense' && (
-                  <>
-                    <Select label="Category" value={recCategory} onChange={e => setRecCategory(e.target.value)}>
-                        {data.budgetConfig.livingCategories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                        {data.budgetConfig.fixedObligations.map(c => <option key={c.name} value={c.name}>{c.name} (Fixed)</option>)}
-                    </Select>
-                    <Select label="Pay From" value={recSource} onChange={e => setRecSource(e.target.value)}>
-                        <optgroup label="Bank">
-                            {data.bankAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                        </optgroup>
-                        <optgroup label="Credit">
-                            {data.debtAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                        </optgroup>
-                    </Select>
-                  </>
-              )}
-
-              {recType === 'income' && (
-                  <>
-                    <Input label="Source Name" placeholder="e.g. Employer" value={recIncomeSource} onChange={e => setRecIncomeSource(e.target.value)} />
-                    <Select label="Deposit To" value={recDest} onChange={e => setRecDest(e.target.value)}>
-                        {data.bankAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                        {data.debtAccounts.map(a => <option key={a.id} value={a.id}>{a.name} (Payoff)</option>)}
-                    </Select>
-                  </>
-              )}
-
-              {recType === 'transfer' && (
-                  <>
-                    <Select label="From Account" value={recSource} onChange={e => setRecSource(e.target.value)}>
-                        {data.bankAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </Select>
-                    <Select label="To Account" value={recDest} onChange={e => setRecDest(e.target.value)}>
-                        {data.bankAccounts.filter(a => a.id !== recSource).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                        {data.debtAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </Select>
-                  </>
-              )}
-
-              <Button fullWidth onClick={addRecurring} className="mt-2">Create Rule</Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Select label="Frequency" value={recFrequency} onChange={e => setRecFrequency(e.target.value as any)}>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                </Select>
+                <Input label="Next Due" type="date" value={recDate} onChange={e => setRecDate(e.target.value)} />
+              </div>
+              <Input label="Amount" type="number" inputMode="decimal" placeholder="0.00" value={recAmount} onChange={e => setRecAmount(e.target.value)} />
+              <Input label="Description" placeholder="e.g. Rent Payment" value={recNote} onChange={e => setRecNote(e.target.value)} />
+              <Button fullWidth onClick={addRecurring} className="mt-2">ACTIVATE RULE</Button>
           </div>
       </Modal>
-
     </div>
   );
 };

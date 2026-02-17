@@ -1,25 +1,77 @@
+
+// @google/genai guidelines followed: Using new GoogleGenAI({ apiKey: process.env.API_KEY }) directly.
 import { GoogleGenAI, Type } from "@google/genai";
 import { Meal, Workout } from '../types';
 
-// DO NOT create GoogleGenAI at the top level — it crashes without a key.
-const MODEL_NAME = 'gemini-2.0-flash';
-const VISION_MODEL_NAME = 'gemini-2.0-flash';
+// Using Gemini 3 Flash as per recommended guidelines for basic text tasks (parsing/summarization)
+const MODEL_NAME = 'gemini-3-flash-preview';
+const VISION_MODEL_NAME = 'gemini-3-flash-preview';
+const USAGE_STORAGE_KEY = 'gemini_usage_stats';
+const DAILY_QUOTA = 1500; // Standard free tier limit for Gemini Flash
 
-let _ai: GoogleGenAI | null = null;
+// --- Usage Tracking Logic ---
 
-const getAi = (): GoogleGenAI | null => {
-  const key = localStorage.getItem('gemini_api_key') || process.env.API_KEY || '';
-  if (!key || key === 'undefined' || key.length < 10) return null;
-  if (!_ai) {
-    try { _ai = new GoogleGenAI({ apiKey: key }); } catch { return null; }
+export interface UsageStats {
+  todayCount: number;
+  totalCount: number;
+  lastUsed: string;
+  quotaLimit: number;
+  isRateLimited: boolean;
+  retryAfterSeconds: number;
+}
+
+const getUsageStats = (): UsageStats => {
+  const raw = localStorage.getItem(USAGE_STORAGE_KEY);
+  const today = new Date().toISOString().split('T')[0];
+  
+  let stats: any = { todayCount: 0, totalCount: 0, lastUsed: today, quotaLimit: DAILY_QUOTA, isRateLimited: false, retryAfterSeconds: 0 };
+  
+  if (raw) {
+    try {
+      const saved = JSON.parse(raw);
+      stats = { ...stats, ...saved };
+    } catch (e) {
+      console.error("Failed to parse usage stats", e);
+    }
   }
-  return _ai;
+
+  if (stats.lastUsed !== today) {
+    stats.todayCount = 0;
+    stats.lastUsed = today;
+    stats.isRateLimited = false;
+  }
+  
+  return stats;
 };
 
-export const clearAiInstance = () => { _ai = null; };
+const trackUsage = (error?: any) => {
+  const stats = getUsageStats();
+  
+  if (error && (error.status === 'RESOURCE_EXHAUSTED' || error.message?.includes('429'))) {
+    stats.isRateLimited = true;
+    const retryDelay = error.details?.find((d: any) => d['@type']?.includes('RetryInfo'))?.retryDelay;
+    if (retryDelay) {
+      stats.retryAfterSeconds = parseInt(retryDelay.replace('s', '')) || 60;
+    } else {
+      stats.retryAfterSeconds = 60;
+    }
+  } else if (!error) {
+    stats.todayCount += 1;
+    stats.totalCount += 1;
+    stats.isRateLimited = false;
+  }
+  
+  localStorage.setItem(USAGE_STORAGE_KEY, JSON.stringify(stats));
+};
+
+export const getAiUsage = () => getUsageStats();
+
+// --- API Methods ---
+
+// Removed clearAiInstance as it's no longer needed with per-call instantiation
 
 export const isAiReady = (): boolean => {
-  return getAi() !== null;
+  return !!process.env.API_KEY && process.env.API_KEY !== 'undefined';
 };
 
 const MEAL_SCHEMA = {
@@ -43,9 +95,14 @@ const MEAL_SCHEMA = {
   required: ["name", "calories", "protein", "carbs", "fats"]
 };
 
+/**
+ * Parses meal description into nutritional components.
+ * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
+ */
 export const parseMealLog = async (description: string): Promise<Partial<Meal> | null> => {
-  const ai = getAi();
-  if (!ai) return null;
+  if (!isAiReady()) return null;
+  // Guidelines: ALWAYS use a new instance right before the call
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
   const prompt = `
   You are a nutrition analyzer. The user will describe a meal they ate. Estimate the nutrition.
@@ -63,18 +120,25 @@ export const parseMealLog = async (description: string): Promise<Partial<Meal> |
       }
     });
 
+    trackUsage();
+    // Guidelines: response.text is a property, not a method
     const text = response.text;
     if (!text) return null;
     return JSON.parse(text);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Meal Parse Error:", error);
+    trackUsage(error);
     return null;
   }
 };
 
+/**
+ * Analyzes food image into nutritional components.
+ * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
+ */
 export const analyzeFoodImage = async (base64Data: string, mimeType: string): Promise<Partial<Meal> | null> => {
-  const ai = getAi();
-  if (!ai) return null;
+  if (!isAiReady()) return null;
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
   const prompt = `
   Analyze this image of food. Identify the meal and estimate the nutritional content for the entire visible portion.
@@ -104,18 +168,24 @@ export const analyzeFoodImage = async (base64Data: string, mimeType: string): Pr
       }
     });
 
+    trackUsage();
     const text = response.text;
     if (!text) return null;
     return JSON.parse(text);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Vision Error:", error);
+    trackUsage(error);
     return null;
   }
 };
 
+/**
+ * Refines meal data based on user feedback.
+ * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
+ */
 export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: string): Promise<Partial<Meal> | null> => {
-  const ai = getAi();
-  if (!ai) return null;
+  if (!isAiReady()) return null;
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
   const prompt = `
   Here is the current nutrition data for a meal: ${JSON.stringify(currentMeal)}.
@@ -135,18 +205,24 @@ export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: str
       }
     });
 
+    trackUsage();
     const text = response.text;
     if (!text) return null;
     return JSON.parse(text);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Meal Refine Error:", error);
+    trackUsage(error);
     return null;
   }
 };
 
+/**
+ * Parses workout text (e.g. from Hevy) into a structured workout object.
+ * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
+ */
 export const parseWorkoutLog = async (text: string): Promise<Partial<Workout>[] | null> => {
-    const ai = getAi();
-    if (!ai) return null;
+    if (!isAiReady()) return null;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
     const prompt = `
     Extract workout data from this text (e.g. copied from Hevy). 
@@ -177,18 +253,24 @@ export const parseWorkoutLog = async (text: string): Promise<Partial<Workout>[] 
             }
         });
 
+        trackUsage();
         const resText = response.text;
         if (!resText) return null;
         return JSON.parse(resText);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Gemini Workout Parse Error:", error);
+        trackUsage(error);
         return null;
     }
 };
 
+/**
+ * Suggests a protein source based on remaining protein goal.
+ * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
+ */
 export const getProteinSuggestion = async (remainingProtein: number): Promise<string> => {
-    const ai = getAi();
-    if (!ai) return "Eat some chicken or greek yogurt.";
+    if (!isAiReady()) return "Eat some chicken or greek yogurt.";
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
     const prompt = `
     The user needs ${remainingProtein}g more protein today. Suggest a quick, easy single food item or small meal to hit this target. Keep it short (max 10 words).
@@ -204,8 +286,10 @@ export const getProteinSuggestion = async (remainingProtein: number): Promise<st
                 thinkingConfig: { thinkingBudget: 0 }
             }
         });
+        trackUsage();
         return response.text || "Greek yogurt or a protein shake.";
-    } catch (error) {
+    } catch (error: any) {
+        trackUsage(error);
         return "Protein shake or eggs.";
     }
 };

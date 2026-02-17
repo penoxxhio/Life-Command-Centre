@@ -7,7 +7,7 @@ import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { Clipboard, Activity, Moon, Zap, BarChart3, Plus, Dumbbell, Flame, Download, AlertCircle, HeartPulse, Footprints } from 'lucide-react';
+import { Clipboard, Activity, Moon, Zap, BarChart3, Plus, Dumbbell, Flame, Download, AlertCircle, HeartPulse, Footprints, Clock } from 'lucide-react';
 import { parseWorkoutLog, isAiReady } from '../services/geminiService';
 import { exportData } from '../services/storageService';
 import { getHealthImport, getHealthDay } from '../services/healthImportService';
@@ -26,33 +26,39 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   const aiAvailable = isAiReady();
 
   // Load imported health data
-  const [importedToday, setImportedToday] = useState<HealthDayData | null>(null);
   const [latestSleepDay, setLatestSleepDay] = useState<HealthDayData | null>(null);
   const [latestHeartDay, setLatestHeartDay] = useState<HealthDayData | null>(null);
+  const [latestStepsDay, setLatestStepsDay] = useState<HealthDayData | null>(null);
+  const [latestActivityDay, setLatestActivityDay] = useState<HealthDayData | null>(null);
+  
   const [hasHealthData, setHasHealthData] = useState(false);
   const [recentSleeps, setRecentSleeps] = useState<number[]>([]);
   const [recentSteps, setRecentSteps] = useState<number[]>([]);
 
   useEffect(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayDay = getHealthDay(todayStr);
-    setImportedToday(todayDay);
-    
     const imp = getHealthImport();
-    if (imp) {
+    if (imp && imp.days.length > 0) {
         setHasHealthData(true);
         // Get last 7 days for charts
-        const days = imp.days.slice(0, 7).reverse();
-        setRecentSleeps(days.map(d => d.sleep ? d.sleep.asleepHours : 0));
-        setRecentSteps(days.map(d => d.steps));
+        const daysForCharts = imp.days.slice(0, 7).reverse();
+        setRecentSleeps(daysForCharts.map(d => d.sleep ? d.sleep.asleepHours : 0));
+        setRecentSteps(daysForCharts.map(d => d.steps));
 
         // Find latest sleep (most recent first)
         const lastSleep = imp.days.find(d => d.sleep !== null);
         if (lastSleep) setLatestSleepDay(lastSleep);
 
-        // Find latest heart
+        // Find latest heart (RHR or HRV)
         const lastHeart = imp.days.find(d => d.restingHR !== null || d.hrvAvg !== null);
         if (lastHeart) setLatestHeartDay(lastHeart);
+
+        // Find latest steps
+        const lastSteps = imp.days.find(d => d.steps > 0);
+        if (lastSteps) setLatestStepsDay(lastSteps);
+
+        // Find latest activity (Move, Exercise, or Stand)
+        const lastActivity = imp.days.find(d => d.activeCalories > 0 || d.exerciseMinutes > 0 || d.standHours > 0);
+        if (lastActivity) setLatestActivityDay(lastActivity);
     }
   }, []);
 
@@ -135,6 +141,18 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
       });
   };
 
+  const formatDateLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diff = today.getTime() - d.getTime();
+    const daysDiff = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (daysDiff === 0) return 'Today';
+    if (daysDiff === 1) return 'Yesterday';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
   // Weekly Stats Logic
   const today = new Date();
   const dayOfWeek = today.getDay(); 
@@ -161,8 +179,6 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
       } as unknown as Workout)));
   }
 
-  // Deduplicate: If manual workout exists on same day, use imported metadata if better?
-  // Simple strategy: Show both, let user delete manual if duplicate.
   const allWeeklyWorkouts = [...manualWorkouts, ...importedWorkoutsThisWeek].sort((a,b) => b.date.localeCompare(a.date));
 
   // --- HEALTH CARDS RENDERERS ---
@@ -178,14 +194,14 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
     else if (asleepHours < goal) color = '#D29922'; // Yellow
 
     return (
-        <Card title="SLEEP" className="bg-card/50">
+        <Card title="SLEEP" action={<span className="text-[10px] font-mono text-textMuted bg-background/50 px-2 py-0.5 rounded">{formatDateLabel(latestSleepDay.date)}</span>} className="bg-card/50">
             <div className="flex justify-between items-end mb-3">
                 <div>
                     <span className="text-4xl font-mono font-bold" style={{color}}>{asleepHours.toFixed(1)}h</span>
                     <span className="text-xs text-textSecondary ml-2">in bed {inBedHours.toFixed(1)}h</span>
                 </div>
                 <div className="text-right">
-                    <span className="text-[10px] text-textSecondary uppercase block">{new Date(latestSleepDay.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>
+                    <span className="text-[10px] text-textSecondary uppercase block">{new Date(latestSleepDay.date).toLocaleDateString(undefined, {weekday: 'short'})}</span>
                 </div>
             </div>
             {/* Mini Bar Chart */}
@@ -207,16 +223,17 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   };
 
   const renderHeartCard = () => {
-      const rhr = latestHeartDay?.restingHR;
-      const hrv = latestHeartDay?.hrvAvg;
-      // Fallback to null checks to avoid rendering if data is missing, checking for undefined/null safely
-      if (!latestHeartDay || (rhr == null && hrv == null)) return null;
+      if (!latestHeartDay) return null;
+      const rhr = latestHeartDay.restingHR;
+      const hrv = latestHeartDay.hrvAvg;
+      
+      if (rhr == null && hrv == null) return null;
 
       const rhrColor = !rhr ? '' : rhr < 60 ? 'text-primary' : rhr < 70 ? 'text-warning' : 'text-alert';
       const hrvColor = !hrv ? '' : hrv > 50 ? 'text-primary' : hrv > 30 ? 'text-warning' : 'text-alert';
 
       return (
-          <Card className="bg-card/50">
+          <Card className="bg-card/50 relative" action={<span className="text-[10px] font-mono text-textMuted bg-background/50 px-2 py-0.5 rounded">{formatDateLabel(latestHeartDay.date)}</span>} title="VITALS">
               <div className="flex divide-x divide-border/50">
                   <div className="flex-1 text-center pr-2">
                       <p className="text-[10px] text-textSecondary uppercase font-bold mb-1">RHR</p>
@@ -231,20 +248,17 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
                       </p>
                   </div>
               </div>
-              <div className="text-right mt-2">
-                  <span className="text-[10px] text-textSecondary uppercase block">{new Date(latestHeartDay.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</span>
-              </div>
           </Card>
       );
   };
 
   const renderStepsCard = () => {
-      if (!importedToday) return null;
-      const steps = importedToday.steps;
+      if (!latestStepsDay) return null;
+      const steps = latestStepsDay.steps;
       const avg = recentSteps.length > 0 ? Math.round(recentSteps.reduce((a,b)=>a+b,0)/recentSteps.length) : 0;
       
       return (
-        <Card title="STEPS" className="bg-card/50">
+        <Card title="STEPS" action={<span className="text-[10px] font-mono text-textMuted bg-background/50 px-2 py-0.5 rounded">{formatDateLabel(latestStepsDay.date)}</span>} className="bg-card/50">
             <div className="flex justify-between items-end mb-3">
                 <div>
                     <span className="text-3xl font-mono font-bold text-white">{steps.toLocaleString()}</span>
@@ -269,20 +283,26 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   };
 
   const renderActivityCard = () => {
-      if (!importedToday) return null;
+      if (!latestActivityDay) return null;
       return (
-          <div className="grid grid-cols-3 gap-2 mb-4">
-              <div className="bg-card border border-border rounded-lg p-2 text-center">
-                  <p className="text-[10px] text-textSecondary uppercase">Move</p>
-                  <p className="font-mono font-bold text-accent">{Math.round(importedToday.activeCalories)} <span className="text-[10px]">cal</span></p>
+          <div className="space-y-2 mb-4">
+              <div className="flex justify-between items-center px-1">
+                  <span className="text-[10px] text-textSecondary font-mono uppercase tracking-widest">Recent Activity</span>
+                  <span className="text-[10px] font-mono text-textMuted">{formatDateLabel(latestActivityDay.date)}</span>
               </div>
-              <div className="bg-card border border-border rounded-lg p-2 text-center">
-                  <p className="text-[10px] text-textSecondary uppercase">Exercise</p>
-                  <p className="font-mono font-bold text-primary">{Math.round(importedToday.exerciseMinutes)} <span className="text-[10px]">min</span></p>
-              </div>
-              <div className="bg-card border border-border rounded-lg p-2 text-center">
-                  <p className="text-[10px] text-textSecondary uppercase">Stand</p>
-                  <p className="font-mono font-bold text-info">{Math.round(importedToday.standHours)} <span className="text-[10px]">hr</span></p>
+              <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-card border border-border rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-textSecondary uppercase">Move</p>
+                      <p className="font-mono font-bold text-accent">{Math.round(latestActivityDay.activeCalories)} <span className="text-[10px]">cal</span></p>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-textSecondary uppercase">Exercise</p>
+                      <p className="font-mono font-bold text-primary">{Math.round(latestActivityDay.exerciseMinutes)} <span className="text-[10px]">min</span></p>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-textSecondary uppercase">Stand</p>
+                      <p className="font-mono font-bold text-info">{Math.round(latestActivityDay.standHours)} <span className="text-[10px]">hr</span></p>
+                  </div>
               </div>
           </div>
       );
@@ -304,7 +324,7 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
              {renderActivityCard()}
           </div>
       ) : (
-          <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 flex justify-between items-center" onClick={() => {}}>
+          <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 flex justify-between items-center">
               <span className="text-xs text-accent font-medium">Import health data in Settings for automatic tracking.</span>
           </div>
       )}

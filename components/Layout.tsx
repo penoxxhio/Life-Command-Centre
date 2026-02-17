@@ -1,6 +1,8 @@
-import React from 'react';
-import { Home, Banknote, Activity, Utensils, Settings } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Home, Banknote, Activity, Utensils, Settings, Sparkles } from 'lucide-react';
 import { Tab, UserProfile } from '../types';
+import { getAiUsage, UsageStats, isAiReady } from '../services/geminiService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +12,19 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, userProfile }) => {
+  const [usage, setUsage] = useState<UsageStats | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const checkUsage = () => {
+      setUsage(getAiUsage());
+      setIsReady(isAiReady());
+    };
+    checkUsage();
+    const interval = setInterval(checkUsage, 5000); // Check every 5 seconds
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
   const tabs = [
     { id: Tab.HOME, label: 'Home', icon: Home },
     { id: Tab.MONEY, label: 'Money', icon: Banknote },
@@ -38,7 +53,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
         
         {/* Header - Sticky with Blur */}
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/50 px-5 py-4 flex justify-between items-center h-[70px]">
-          <div>
+          <div className="flex-1">
             <div className="text-textSecondary font-mono text-[10px] uppercase tracking-widest mb-0.5">
               {dateString} • WK {weekNum}
             </div>
@@ -46,12 +61,29 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
               {getGreeting()}, <span className="text-accent">{userProfile.name}</span>
             </h1>
           </div>
-          <button 
-            onClick={() => onTabChange(Tab.SETTINGS)}
-            className="p-2.5 text-textSecondary hover:text-white hover:bg-card rounded-full transition-all active:scale-95"
-          >
-            <Settings size={20} />
-          </button>
+          
+          <div className="flex items-center gap-2">
+            {isReady && usage && (
+              <div className="flex flex-col items-end mr-1">
+                <div className="flex items-center gap-1.5 text-ai text-[10px] font-mono font-bold">
+                  <Sparkles size={12} className={usage.isRateLimited ? 'text-alert' : 'text-ai'} />
+                  <span>{Math.max(0, usage.quotaLimit - usage.todayCount)} LEFT</span>
+                </div>
+                <div className="w-12 h-1 bg-border rounded-full overflow-hidden mt-1">
+                   <div 
+                    className={`h-full transition-all duration-500 ${usage.isRateLimited ? 'bg-alert' : 'bg-ai'}`}
+                    style={{ width: `${(usage.todayCount / usage.quotaLimit) * 100}%` }}
+                   />
+                </div>
+              </div>
+            )}
+            <button 
+              onClick={() => onTabChange(Tab.SETTINGS)}
+              className="p-2.5 text-textSecondary hover:text-white hover:bg-card rounded-full transition-all active:scale-95"
+            >
+              <Settings size={20} />
+            </button>
+          </div>
         </header>
 
         {/* Main Content */}
