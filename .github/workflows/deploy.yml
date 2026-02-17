@@ -46,6 +46,28 @@ jobs:
           open('index.html', 'w').write(html)
           "
 
+      - name: Ensure base path in vite config
+        run: |
+          python3 -c "
+          content = open('vite.config.ts').read()
+          if \"base:\" not in content:
+              content = content.replace(
+                  \"plugins: [react()],\",
+                  \"plugins: [react()],\n    base: '/Life-Command-Centre/',\"
+              )
+              open('vite.config.ts', 'w').write(content)
+          "
+
+      - name: Ensure manifest paths
+        run: |
+          python3 -c "
+          import json
+          m = json.load(open('manifest.json'))
+          m['start_url'] = '/Life-Command-Centre/'
+          m['scope'] = '/Life-Command-Centre/'
+          json.dump(m, open('manifest.json', 'w'), indent=2)
+          "
+
       - name: Build
         run: npm run build
 
