@@ -1,9 +1,9 @@
-
 {
   "name": "Life Command Centre",
   "short_name": "Life Command",
   "description": "Personal command centre for finance, fitness, and nutrition",
-  "start_url": "/",
+  "start_url": "/Life-Command-Centre/",
+  "scope": "/Life-Command-Centre/",
   "display": "standalone",
   "background_color": "#0D1117",
   "theme_color": "#0D1117",
