@@ -1,16 +1,16 @@
 
 export const requestNotificationPermission = async (): Promise<boolean> => {
-    if (!('Notification' in window)) return false;
+    if (typeof window === 'undefined' || !('Notification' in window)) return false;
     
-    if (Notification.permission === 'granted') return true;
+    if (window.Notification.permission === 'granted') return true;
     
-    const permission = await Notification.requestPermission();
+    const permission = await window.Notification.requestPermission();
     return permission === 'granted';
 };
 
 export const sendNotification = (title: string, body: string) => {
-    if (Notification.permission === 'granted') {
-        new Notification(title, {
+    if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
+        new window.Notification(title, {
             body,
             icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%230D1117"/><path d="M30 30 L70 30 L70 70 L30 70 Z" stroke="%232EA043" stroke-width="8" fill="none" rx="8"/><circle cx="50" cy="50" r="10" fill="%232EA043"/></svg>',
             tag: 'life-command-reminder'
