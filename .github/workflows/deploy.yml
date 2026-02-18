@@ -1,186 +1,84 @@
 name: Deploy to GitHub Pages
 
 on:
-push:
-branches: [main]
+  push:
+    branches: [main]
 
 permissions:
-contents: read
-pages: write
-id-token: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-group: “pages”
-cancel-in-progress: true
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-build-and-deploy:
-runs-on: ubuntu-latest
-environment:
-name: github-pages
-url: ${{ steps.deployment.outputs.page_url }}
-steps:
-- uses: actions/checkout@v4
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
 
-```
-  - uses: actions/setup-node@v4
-    with:
-      node-version: 20
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-  - name: Install dependencies
-    run: npm install
+      - name: Install dependencies
+        run: npm install
 
-  - name: Apply all patches
-    run: |
-      python3 << 'SCRIPT'
-      import re, json, os
+      - name: Fix Button location
+        run: |
+          if [ -f Button.tsx ] && [ -f components/ui/Button.tsx ]; then
+            rm Button.tsx
+          elif [ -f Button.tsx ]; then
+            mv Button.tsx components/ui/Button.tsx
+          fi
 
-      # --- Fix Button location ---
-      if os.path.exists('Button.tsx'):
-          if os.path.exists('components/ui/Button.tsx'):
-              os.remove('Button.tsx')
-          else:
-              os.makedirs('components/ui', exist_ok=True)
-              os.rename('Button.tsx', 'components/ui/Button.tsx')
+      - name: Remove importmap from index.html
+        run: |
+          python3 -c "
+          import re
+          html = open('index.html').read()
+          html = re.sub(r'\s*<script type=\"importmap\">.*?</script>', '', html, flags=re.DOTALL)
+          open('index.html', 'w').write(html)
+          "
 
-      # --- Remove importmap ---
-      html = open('index.html').read()
-      html = re.sub(r'\s*<script type="importmap">.*?</script>', '', html, flags=re.DOTALL)
-      open('index.html', 'w').write(html)
+      - name: Ensure base path in vite config
+        run: |
+          python3 -c "
+          content = open('vite.config.ts').read()
+          if \"base:\" not in content:
+              content = content.replace(
+                  \"plugins: [react()],\",
+                  \"plugins: [react()],\n    base: '/Life-Command-Centre/',\"
+              )
+              open('vite.config.ts', 'w').write(content)
+          "
 
-      # --- Fix base path ---
-      vc = open('vite.config.ts').read()
-      if 'base:' not in vc:
-          vc = vc.replace('plugins: [react()],', "plugins: [react()],\n    base: '/Life-Command-Centre/',")
-          open('vite.config.ts', 'w').write(vc)
+      - name: Ensure manifest paths
+        run: |
+          python3 -c "
+          import json
+          m = json.load(open('manifest.json'))
+          m['start_url'] = '/Life-Command-Centre/'
+          m['scope'] = '/Life-Command-Centre/'
+          json.dump(m, open('manifest.json', 'w'), indent=2)
+          "
 
-      # --- Fix manifest ---
-      m = json.load(open('manifest.json'))
-      m['start_url'] = '/Life-Command-Centre/'
-      m['scope'] = '/Life-Command-Centre/'
-      json.dump(m, open('manifest.json', 'w'), indent=2)
+      - name: Build
+        run: npm run build
 
-      # --- Fix geminiService.ts: model + localStorage API key ---
-      gs = open('services/geminiService.ts').read()
-      gs = re.sub(r"const MODEL_NAME\s*=\s*'[^']*'", "const MODEL_NAME = 'gemini-2.0-flash'", gs)
-      gs = re.sub(r"const VISION_MODEL_NAME\s*=\s*'[^']*'", "const VISION_MODEL_NAME = 'gemini-2.0-flash'", gs)
-      gs = re.sub(
-          r"new GoogleGenAI\(\{\s*apiKey:\s*process\.env\.API_KEY!?\s*\}\)",
-          "new GoogleGenAI({ apiKey: localStorage.getItem('gemini_api_key') || process.env.API_KEY || '' })",
-          gs
-      )
-      gs = re.sub(
-          r"export const isAiReady.*?};",
-          "export const isAiReady = (): boolean => { const key = localStorage.getItem('gemini_api_key') || process.env.API_KEY; return !!key && key !== 'undefined'; };",
-          gs, flags=re.DOTALL
-      )
-      if 'export const clearAiInstance' not in gs:
-          gs = gs.replace("export const isAiReady", "export const clearAiInstance = () => {};\nexport const isAiReady")
-      open('services/geminiService.ts', 'w').write(gs)
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
-      # --- Fix Layout.tsx: remove getAiUsage ---
-      lt = open('components/Layout.tsx').read()
-      if 'getAiUsage' in lt:
-          lt = re.sub(r"import \{[^}]*\} from ['\"]\.\.\/services\/geminiService['\"];?\n?", "", lt)
-          lt = lt.replace(', Sparkles', '')
-          lt = re.sub(r"\s*const \[usage,.*?\n", "\n", lt)
-          lt = re.sub(r"\s*const \[isReady,.*?\n", "\n", lt)
-          lt = re.sub(r"\s*useEffect\(\(\) => \{[\s\S]*?getAiUsage[\s\S]*?\}, \[activeTab\]\);", "", lt)
-          # Remove usage display - find {isReady && usage && and its closing
-          idx = lt.find('{isReady && usage &&')
-          if idx != -1:
-              line_start = lt.rfind('\n', 0, idx)
-              depth = 0
-              j = idx
-              end = -1
-              while j < len(lt):
-                  if lt[j] == '{': depth += 1
-                  elif lt[j] == '}':
-                      depth -= 1
-                      if depth == 0:
-                          end = j + 1
-                          break
-                  j += 1
-              if end != -1:
-                  lt = lt[:line_start] + lt[end:]
-          if 'useState' not in lt.split('LayoutProps')[0].split('\n')[-1]:
-              lt = lt.replace("import React, { useState, useEffect } from 'react';", "import React from 'react';")
-          open('components/Layout.tsx', 'w').write(lt)
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
 
-      # --- Fix Settings.tsx: restore API key input ---
-      st = open('pages/Settings.tsx').read()
-
-      # Remove AI Usage Indicator block
-      marker = '{/* AI Usage Indicator */}'
-      if marker in st:
-          start = st.find(marker)
-          line_start = st.rfind('\n', 0, start) + 1
-          i2 = st.find('{aiUsage && aiConnected && (', start)
-          if i2 != -1:
-              depth = 0
-              j2 = i2
-              end2 = -1
-              while j2 < len(st):
-                  if st[j2] == '{': depth += 1
-                  elif st[j2] == '}':
-                      depth -= 1
-                      if depth == 0:
-                          end2 = j2 + 1
-                          break
-                  j2 += 1
-              if end2 != -1:
-                  if end2 < len(st) and st[end2] == '\n': end2 += 1
-                  st = st[:line_start] + st[end2:]
-
-      # Remove aiUsage lines
-      lines = st.split('\n')
-      lines = [l for l in lines if not l.strip().startswith('const [aiUsage') and not l.strip().startswith('setAiUsage(')]
-      st = '\n'.join(lines)
-
-      # Fix imports
-      if 'clearAiInstance' not in st and 'isAiReady' in st:
-          st = re.sub(
-              r"import \{([^}]*)\} from '../services/geminiService';",
-              "import { isAiReady, clearAiInstance, parseMealLog } from '../services/geminiService';",
-              st)
-
-      # Add apiKeyInput state
-      if 'apiKeyInput' not in st:
-          st = st.replace(
-              'const [aiConnected, setAiConnected] = useState(isAiReady());',
-              "const [aiConnected, setAiConnected] = useState(isAiReady());\n  const [apiKeyInput, setApiKeyInput] = useState(localStorage.getItem('gemini_api_key') || '');")
-
-      # Replace AI ENGINE CONFIG card
-      if 'process.env.API_KEY' in st and 'SAVE API KEY' not in st:
-          si = st.find('<Card title="AI ENGINE CONFIG">')
-          if si != -1:
-              ei = st.find('</Card>', si)
-              if ei != -1:
-                  ei += len('</Card>')
-                  card = '<Card title="AI ENGINE CONFIG">\n'
-                  card += '          <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-3"><Sparkles size={18} className={aiConnected ? \'text-accent\' : \'text-alert\'} /><span className="text-xs font-bold uppercase tracking-tight">Status: {aiConnected ? \'Connected\' : \'API Key Missing\'}</span></div>{aiConnected && <CheckCircle2 size={16} className="text-accent" />}</div>\n'
-                  card += '          <Input label="Gemini API Key" type="password" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Paste key from ai.google.dev" />\n'
-                  card += '          <Button variant="primary" fullWidth onClick={() => { if (apiKeyInput.length < 10) return; localStorage.setItem(\'gemini_api_key\', apiKeyInput); clearAiInstance(); alert(\'API Key saved!\'); window.location.reload(); }} className="mt-3">SAVE API KEY</Button>\n'
-                  card += '          <Button variant="secondary" fullWidth onClick={async () => { try { const result = await parseMealLog("1 banana"); if (result) { alert("Working! " + result.name + ", " + result.calories + " cal"); } else { alert("API returned empty."); } } catch (error) { alert("Error: " + error.message); } }} disabled={!aiConnected} className="mt-2">TEST CONNECTION</Button>\n'
-                  card += '      </Card>'
-                  st = st[:si] + card + st[ei:]
-
-      open('pages/Settings.tsx', 'w').write(st)
-      print("All patches applied successfully")
-      SCRIPT
-
-  - name: Build
-    run: npm run build
-
-  - name: Setup Pages
-    uses: actions/configure-pages@v4
-
-  - name: Upload artifact
-    uses: actions/upload-pages-artifact@v3
-    with:
-      path: dist
-
-  - name: Deploy to GitHub Pages
-    id: deployment
-    uses: actions/deploy-pages@v4
-```
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
