@@ -15,7 +15,7 @@ import {
   Download, Upload, Plus, Trash2, List, 
   ChevronRight, ArrowLeft, Wallet, Activity, Database, 
   Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Bell, HeartPulse, UserCircle,
-  Lock, Unlock
+  Lock, Unlock, Edit2
 } from 'lucide-react';
 
 interface SettingsProps {
@@ -58,6 +58,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   const [catName, setCatName] = useState('');
   const [catBudget, setCatBudget] = useState('');
   const [catIcon, setCatIcon] = useState('💸');
+  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
 
   const [activeCategoryIndex, setActiveCategoryIndex] = useState<number | null>(null);
   const [subcatInput, setSubcatInput] = useState('');
@@ -265,22 +266,79 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       });
   };
 
-  const addCategory = () => {
+  const saveCategory = () => {
       if (!catName) return;
-      const newCat: BudgetCategory = {
-          name: catName,
-          budget: parseFloat(catBudget) || 100,
-          icon: catIcon,
-          subcategories: [],
-          locked: false
-      };
-      updateData({
-          budgetConfig: {
-              ...data.budgetConfig,
-              livingCategories: [...data.budgetConfig.livingCategories, newCat]
+      const amount = parseFloat(catBudget) || 0;
+      
+      if (editingCategoryIndex !== null) {
+          // Edit existing
+          const updatedCats = [...data.budgetConfig.livingCategories];
+          const oldName = updatedCats[editingCategoryIndex].name;
+          
+          updatedCats[editingCategoryIndex] = {
+              ...updatedCats[editingCategoryIndex],
+              name: catName,
+              budget: amount,
+              icon: catIcon
+          };
+
+          const updates: Partial<AppData> = {
+              budgetConfig: {
+                  ...data.budgetConfig,
+                  livingCategories: updatedCats
+              }
+          };
+
+          // If name changed, update associated expenses and recurring transactions
+          if (oldName !== catName) {
+              updates.expenses = data.expenses.map(e => 
+                  e.categoryName === oldName ? { ...e, categoryName: catName } : e
+              );
+              updates.recurringTransactions = data.recurringTransactions.map(r => 
+                  r.categoryName === oldName ? { ...r, categoryName: catName } : r
+              );
           }
-      });
-      setCatName(''); setCatBudget(''); setShowCatModal(false);
+
+          updateData(updates);
+      } else {
+          // Add new
+          const newCat: BudgetCategory = {
+              name: catName,
+              budget: amount,
+              icon: catIcon,
+              subcategories: [],
+              locked: false
+          };
+          updateData({
+              budgetConfig: {
+                  ...data.budgetConfig,
+                  livingCategories: [...data.budgetConfig.livingCategories, newCat]
+              }
+          });
+      }
+      
+      setCatName(''); 
+      setCatBudget(''); 
+      setCatIcon('💸');
+      setEditingCategoryIndex(null);
+      setShowCatModal(false);
+  };
+
+  const openEditCategory = (idx: number) => {
+      const cat = data.budgetConfig.livingCategories[idx];
+      setCatName(cat.name);
+      setCatBudget(cat.budget?.toString() || '');
+      setCatIcon(cat.icon);
+      setEditingCategoryIndex(idx);
+      setShowCatModal(true);
+  };
+
+  const openAddCategory = () => {
+      setCatName('');
+      setCatBudget('');
+      setCatIcon('💸');
+      setEditingCategoryIndex(null);
+      setShowCatModal(true);
   };
 
   const confirmRemoveCategory = (idx: number) => {
@@ -549,7 +607,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           </div>
       </Card>
 
-      <Card title="BUDGET CATEGORIES" action={<button onClick={() => setShowCatModal(true)} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
+      <Card title="BUDGET CATEGORIES" action={<button onClick={openAddCategory} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
           <p className="text-[10px] text-textSecondary mb-2">Locked categories are protected from rebalancing when you overspend elsewhere.</p>
           <div className="grid grid-cols-2 gap-2">
               {data.budgetConfig.livingCategories.map((cat, idx) => (
@@ -562,6 +620,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
                           <button onClick={() => toggleCategoryLock(idx)} className={`p-1.5 hover:text-white rounded transition-colors ${cat.locked ? 'text-accent' : 'text-textSecondary'}`}>
                              {cat.locked ? <Lock size={12}/> : <Unlock size={12}/>}
                           </button>
+                          <button onClick={() => openEditCategory(idx)} className="text-textSecondary hover:text-white p-1.5"><Edit2 size={12}/></button>
                           <button onClick={() => openSubcatModal(idx)} className="text-textSecondary hover:text-white p-1.5"><List size={12}/></button>
                           <button onClick={() => confirmRemoveCategory(idx)} className="text-textSecondary hover:text-alert p-1.5"><Trash2 size={12}/></button>
                       </div>
@@ -731,12 +790,12 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           </div>
       </Modal>
 
-      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title="Add Spending Category">
+      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title={editingCategoryIndex !== null ? "Edit Category" : "Add Spending Category"}>
           <div className="space-y-4">
               <Input label="Category Name" placeholder="e.g. Subscriptions" value={catName} onChange={e => setCatName(e.target.value)} />
               <Input label="Monthly Budget" type="number" inputMode="decimal" value={catBudget} onChange={e => setCatBudget(e.target.value)} />
               <Input label="Emoji Icon" placeholder="💰" value={catIcon} onChange={e => setCatIcon(e.target.value)} />
-              <Button fullWidth onClick={addCategory} className="mt-2">CREATE CATEGORY</Button>
+              <Button fullWidth onClick={saveCategory} className="mt-2">{editingCategoryIndex !== null ? "UPDATE CATEGORY" : "CREATE CATEGORY"}</Button>
           </div>
       </Modal>
 

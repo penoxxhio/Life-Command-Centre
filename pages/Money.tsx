@@ -852,12 +852,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                     CONFIRM REBALANCE ({Math.min(100, (totalPulled/rebalanceDeficit)*100).toFixed(0)}%)
                 </Button>
                 <div className="flex gap-2">
-                    <Button 
-                        variant="ghost" 
-                        fullWidth 
-                        onClick={handleRebalanceSkip} 
-                        className="border-alert text-alert hover:bg-alert hover:text-white hover:border-alert bg-transparent"
-                    >
+                    <Button variant="danger" fullWidth onClick={handleRebalanceSkip} className="bg-transparent border border-alert text-alert hover:bg-alert hover:text-white">
                         ALLOW OVERSPEND
                     </Button>
                     <Button variant="secondary" fullWidth onClick={handleRebalanceCancel}>
@@ -919,11 +914,11 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                              <div className="flex justify-between items-center">
                                  <div className="flex gap-1">
                                     <button onClick={() => updateRebalanceAmount(cat.name, 0)} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">None</button>
-                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(available * 0.25))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">25%</button>
-                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(available * 0.5))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">50%</button>
+                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(Number(available) * 0.25))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">25%</button>
+                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(Number(available) * 0.5))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">50%</button>
                                  </div>
                                  <span className={`font-mono font-bold ${currentPull > 0 ? 'text-accent' : 'text-textMuted'}`}>
-                                     -{Number(currentPull)}
+                                     -{currentPull}
                                  </span>
                              </div>
                          </div>
