@@ -1,5 +1,5 @@
 
-// @google/genai guidelines followed: Using new GoogleGenAI({ apiKey: process.env.API_KEY }) directly.
+// @google/genai guidelines followed: Using new GoogleGenAI({ apiKey: ... }) directly.
 import { GoogleGenAI, Type } from "@google/genai";
 import { Meal, Workout } from '../types';
 
@@ -68,10 +68,14 @@ export const getAiUsage = () => getUsageStats();
 
 // --- API Methods ---
 
-// Removed clearAiInstance as it's no longer needed with per-call instantiation
+const getApiKey = (): string | undefined => {
+  // Check local storage first, then env var
+  return localStorage.getItem('gemini_api_key') || process.env.API_KEY;
+};
 
 export const isAiReady = (): boolean => {
-  return !!process.env.API_KEY && process.env.API_KEY !== 'undefined';
+  const key = getApiKey();
+  return !!key && key !== 'undefined';
 };
 
 const MEAL_SCHEMA = {
@@ -97,12 +101,13 @@ const MEAL_SCHEMA = {
 
 /**
  * Parses meal description into nutritional components.
- * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
+ * Creates a fresh GoogleGenAI instance using the best available API Key.
  */
 export const parseMealLog = async (description: string): Promise<Partial<Meal> | null> => {
-  if (!isAiReady()) return null;
-  // Guidelines: ALWAYS use a new instance right before the call
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+  
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
   You are a nutrition analyzer. The user will describe a meal they ate. Estimate the nutrition.
@@ -134,11 +139,12 @@ export const parseMealLog = async (description: string): Promise<Partial<Meal> |
 
 /**
  * Analyzes food image into nutritional components.
- * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
  */
 export const analyzeFoodImage = async (base64Data: string, mimeType: string): Promise<Partial<Meal> | null> => {
-  if (!isAiReady()) return null;
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+  
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
   Analyze this image of food. Identify the meal and estimate the nutritional content for the entire visible portion.
@@ -181,11 +187,12 @@ export const analyzeFoodImage = async (base64Data: string, mimeType: string): Pr
 
 /**
  * Refines meal data based on user feedback.
- * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
  */
 export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: string): Promise<Partial<Meal> | null> => {
-  if (!isAiReady()) return null;
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+  
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
   Here is the current nutrition data for a meal: ${JSON.stringify(currentMeal)}.
@@ -218,11 +225,12 @@ export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: str
 
 /**
  * Parses workout text (e.g. from Hevy) into a structured workout object.
- * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
  */
 export const parseWorkoutLog = async (text: string): Promise<Partial<Workout>[] | null> => {
-    if (!isAiReady()) return null;
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    const apiKey = getApiKey();
+    if (!apiKey) return null;
+    
+    const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `
     Extract workout data from this text (e.g. copied from Hevy). 
@@ -266,11 +274,12 @@ export const parseWorkoutLog = async (text: string): Promise<Partial<Workout>[] 
 
 /**
  * Suggests a protein source based on remaining protein goal.
- * Creates a fresh GoogleGenAI instance using process.env.API_KEY per call.
  */
 export const getProteinSuggestion = async (remainingProtein: number): Promise<string> => {
-    if (!isAiReady()) return "Eat some chicken or greek yogurt.";
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    const apiKey = getApiKey();
+    if (!apiKey) return "Eat some chicken or greek yogurt.";
+    
+    const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `
     The user needs ${remainingProtein}g more protein today. Suggest a quick, easy single food item or small meal to hit this target. Keep it short (max 10 words).

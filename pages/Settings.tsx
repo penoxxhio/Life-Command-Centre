@@ -73,6 +73,9 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   const [recDest, setRecDest] = useState(data.bankAccounts[0]?.id || '');
   const [recIncomeSource, setRecIncomeSource] = useState('');
 
+  // API Key Input
+  const [apiKeyInput, setApiKeyInput] = useState(localStorage.getItem('gemini_api_key') || '');
+
   // Health Import State
   const [healthJsonText, setHealthJsonText] = useState('');
   const [healthDataInfo, setHealthDataInfo] = useState<string | null>(null);
@@ -89,6 +92,22 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   }, []);
 
   // --- Handlers ---
+  
+  const saveApiKey = () => {
+    if (apiKeyInput.length > 0 && apiKeyInput.length < 10) {
+      alert("Invalid API Key");
+      return;
+    }
+    
+    if (apiKeyInput.length === 0) {
+      localStorage.removeItem('gemini_api_key');
+    } else {
+      localStorage.setItem('gemini_api_key', apiKeyInput);
+    }
+    
+    alert('API Key configuration updated!');
+    window.location.reload();
+  };
 
   const handleImport = () => {
       const input = document.createElement('input');
@@ -412,7 +431,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
        )}
 
        <div className="pt-8 text-center">
-          <p className="text-[10px] text-textSecondary font-mono uppercase tracking-widest opacity-40">System Core v2.5.2</p>
+          <p className="text-[10px] text-textSecondary font-mono uppercase tracking-widest opacity-40">System Core v2.5.4</p>
       </div>
     </div>
   );
@@ -591,10 +610,18 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
             </div>
             {aiConnected && <CheckCircle2 size={16} className="text-accent" />}
           </div>
-          {/* @google/genai guidelines: Management UI for API keys is prohibited. Relying on process.env.API_KEY */}
-          <div className="p-3 bg-ai/5 border border-ai/20 rounded-lg">
-             <p className="text-[10px] text-textPrimary font-bold mb-1">Service Information</p>
-             <p className="text-[10px] text-textSecondary leading-relaxed">System is strictly utilizing the pre-configured <code className="text-ai font-bold">process.env.API_KEY</code> for all Gemini AI operations. Ensure your deployment environment has this key correctly set.</p>
+          <div className="space-y-3">
+              <Input 
+                  label="API Key (Optional)"
+                  type="password"
+                  placeholder="Paste key to override system default"
+                  value={apiKeyInput}
+                  onChange={e => setApiKeyInput(e.target.value)}
+              />
+              <Button fullWidth onClick={saveApiKey}>UPDATE CONFIGURATION</Button>
+              <p className="text-[10px] text-textSecondary">
+                 Leave empty to use the built-in system key ({process.env.API_KEY ? 'Present' : 'Missing'}).
+              </p>
           </div>
       </Card>
 

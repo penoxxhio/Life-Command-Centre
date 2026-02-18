@@ -51,8 +51,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
     <div className="min-h-screen bg-background text-textPrimary font-sans selection:bg-accent/30">
       <div className="max-w-[430px] mx-auto min-h-screen flex flex-col relative bg-background shadow-2xl">
         
-        {/* Header - Sticky with Blur */}
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/50 px-5 py-4 flex justify-between items-center h-[70px]">
+        {/* Header - Sticky with Blur & Safe Area Padding. Increased pt to 2.5rem to fix status bar overlap */}
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/50 px-5 flex justify-between items-center pb-4 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
           <div className="flex-1">
             <div className="text-textSecondary font-mono text-[10px] uppercase tracking-widest mb-0.5">
               {dateString} • WK {weekNum}
