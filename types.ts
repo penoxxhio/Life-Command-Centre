@@ -37,6 +37,8 @@ export interface BudgetCategory {
   budget?: number; // For living
   icon: string;
   subcategories?: string[];
+  locked?: boolean;
+  originalBudget?: number;
 }
 
 export interface BudgetConfig {
@@ -177,6 +179,7 @@ export interface AppData {
   meals: Meal[];
   nutritionQuickChips: string[];
   initialized: boolean;
+  assetOnlyMode: boolean;
 }
 
 export enum Tab {

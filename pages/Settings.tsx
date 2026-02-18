@@ -14,7 +14,8 @@ import { requestNotificationPermission } from '../services/notificationService';
 import { 
   Download, Upload, Plus, Trash2, List, 
   ChevronRight, ArrowLeft, Wallet, Activity, Database, 
-  Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Bell, HeartPulse, UserCircle
+  Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Bell, HeartPulse, UserCircle,
+  Lock, Unlock
 } from 'lucide-react';
 
 interface SettingsProps {
@@ -270,7 +271,8 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           name: catName,
           budget: parseFloat(catBudget) || 100,
           icon: catIcon,
-          subcategories: []
+          subcategories: [],
+          locked: false
       };
       updateData({
           budgetConfig: {
@@ -293,6 +295,14 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
                   budgetConfig: { ...data.budgetConfig, livingCategories: updated }
               });
           }
+      });
+  };
+
+  const toggleCategoryLock = (idx: number) => {
+      const updated = [...data.budgetConfig.livingCategories];
+      updated[idx] = { ...updated[idx], locked: !updated[idx].locked };
+      updateData({
+          budgetConfig: { ...data.budgetConfig, livingCategories: updated }
       });
   };
 
@@ -540,6 +550,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       </Card>
 
       <Card title="BUDGET CATEGORIES" action={<button onClick={() => setShowCatModal(true)} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
+          <p className="text-[10px] text-textSecondary mb-2">Locked categories are protected from rebalancing when you overspend elsewhere.</p>
           <div className="grid grid-cols-2 gap-2">
               {data.budgetConfig.livingCategories.map((cat, idx) => (
                   <div key={idx} className="flex justify-between items-center bg-background/40 p-3 rounded-lg border border-border/50">
@@ -548,6 +559,9 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
                           <span className="text-[11px] font-medium truncate">{cat.name}</span>
                       </div>
                       <div className="flex gap-1 shrink-0">
+                          <button onClick={() => toggleCategoryLock(idx)} className={`p-1.5 hover:text-white rounded transition-colors ${cat.locked ? 'text-accent' : 'text-textSecondary'}`}>
+                             {cat.locked ? <Lock size={12}/> : <Unlock size={12}/>}
+                          </button>
                           <button onClick={() => openSubcatModal(idx)} className="text-textSecondary hover:text-white p-1.5"><List size={12}/></button>
                           <button onClick={() => confirmRemoveCategory(idx)} className="text-textSecondary hover:text-alert p-1.5"><Trash2 size={12}/></button>
                       </div>

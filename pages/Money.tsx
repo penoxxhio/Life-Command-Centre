@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { AppData, BankAccount, DebtAccount, Expense, Income, Transfer } from '../types';
+import { AppData, BankAccount, DebtAccount, Expense, Income, Transfer, BudgetCategory } from '../types';
 import { Card } from '../components/ui/Card';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Button } from '../components/ui/Button';
@@ -8,7 +9,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { exportData } from '../services/storageService';
-import { Plus, Trash2, Edit2, TrendingUp, TrendingDown, DollarSign, X, ArrowRightLeft, Download } from 'lucide-react';
+import { Plus, Trash2, Edit2, TrendingUp, TrendingDown, DollarSign, X, ArrowRightLeft, Download, Shield, ShieldAlert, Lock, AlertTriangle } from 'lucide-react';
 
 interface MoneyProps {
   data: AppData;
@@ -27,6 +28,12 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showReconcileModal, setShowReconcileModal] = useState(false);
+  
+  // Rebalance State
+  const [showRebalanceModal, setShowRebalanceModal] = useState(false);
+  const [pendingExpense, setPendingExpense] = useState<Expense | null>(null);
+  const [rebalanceDeficit, setRebalanceDeficit] = useState(0);
+  const [rebalanceMap, setRebalanceMap] = useState<Record<string, number>>({});
   
   // Confirmation State
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -91,10 +98,34 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
   // Ensure default source is valid when modal opens
   useEffect(() => {
       if (showExpenseModal && !expenseSource) {
-          if (data.bankAccounts.length > 0) setExpenseSource(data.bankAccounts[0].id);
-          else if (data.debtAccounts.length > 0) setExpenseSource(data.debtAccounts[0].id);
+          // If asset mode is on, ensure we pick a bank account
+          if (data.assetOnlyMode) {
+              if (data.bankAccounts.length > 0) setExpenseSource(data.bankAccounts[0].id);
+          } else {
+              if (data.bankAccounts.length > 0) setExpenseSource(data.bankAccounts[0].id);
+              else if (data.debtAccounts.length > 0) setExpenseSource(data.debtAccounts[0].id);
+          }
       }
-  }, [showExpenseModal, data.bankAccounts, data.debtAccounts]);
+  }, [showExpenseModal, data.bankAccounts, data.debtAccounts, data.assetOnlyMode]);
+
+  const toggleAssetMode = () => {
+    updateData({ assetOnlyMode: !data.assetOnlyMode });
+  };
+
+  // Helpers defined before usage to ensure type safety in dependent functions
+  const getCategorySpend = (catName: string): number => {
+      return data.expenses
+        .filter(e => e.categoryName === catName && e.date >= cycleStartStr)
+        .reduce((sum: number, e) => sum + e.amount, 0);
+  };
+
+  const getCategoryColor = (spent: number, budget: number) => {
+      const pct = (spent / budget) * 100;
+      if (pct < 50) return '#5CB870';
+      if (pct < 80) return '#D29922';
+      if (pct < 100) return '#F85149';
+      return '#8B0000';
+  };
 
   const handleLogPayment = () => {
     if (!paymentAmount) return;
@@ -122,12 +153,12 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
     setPaymentAmount('');
   };
 
-  const handleAddExpense = () => {
+  const checkBudgetAndAddExpense = () => {
       if (!expenseAmount) return;
       const amount = parseFloat(expenseAmount);
       const category = data.budgetConfig.livingCategories.find(c => c.name === expenseCategory);
       
-      const newExpense = {
+      const newExpense: Expense = {
           id: Math.random().toString(36).substr(2, 9),
           date: expenseDate,
           categoryName: expenseCategory,
@@ -138,36 +169,98 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
           sourceAccountId: expenseSource
       };
 
+      // Check Budget Overrun
+      const currentSpend = getCategorySpend(expenseCategory);
+      const newSpend = currentSpend + amount;
+      const budget = category?.budget || 0;
+
+      if (budget > 0 && newSpend > budget) {
+          setPendingExpense(newExpense);
+          setRebalanceDeficit(newSpend - budget);
+          setRebalanceMap({});
+          setShowExpenseModal(false);
+          setShowRebalanceModal(true);
+      } else {
+          processExpense(newExpense);
+          setShowExpenseModal(false);
+      }
+
+      setExpenseAmount('');
+      setExpenseNote('');
+  };
+
+  const processExpense = (expense: Expense, budgetAdjustments?: BudgetCategory[]) => {
       let updatedBankAccounts = data.bankAccounts;
       let updatedDebtAccounts = data.debtAccounts;
 
-      const bankIndex = data.bankAccounts.findIndex(b => b.id === expenseSource);
+      const bankIndex = data.bankAccounts.findIndex(b => b.id === expense.sourceAccountId);
       if (bankIndex !== -1) {
           updatedBankAccounts = [...data.bankAccounts];
           updatedBankAccounts[bankIndex] = {
               ...updatedBankAccounts[bankIndex],
-              balance: updatedBankAccounts[bankIndex].balance - amount
+              balance: updatedBankAccounts[bankIndex].balance - expense.amount
           };
       } else {
-          const debtIndex = data.debtAccounts.findIndex(d => d.id === expenseSource);
+          const debtIndex = data.debtAccounts.findIndex(d => d.id === expense.sourceAccountId);
           if (debtIndex !== -1) {
               updatedDebtAccounts = [...data.debtAccounts];
               updatedDebtAccounts[debtIndex] = {
                   ...updatedDebtAccounts[debtIndex],
-                  currentBalance: updatedDebtAccounts[debtIndex].currentBalance + amount
+                  currentBalance: updatedDebtAccounts[debtIndex].currentBalance + expense.amount
               };
           }
       }
 
-      updateData({
-          expenses: [newExpense, ...data.expenses],
+      const updatePayload: Partial<AppData> = {
+          expenses: [expense, ...data.expenses],
           bankAccounts: updatedBankAccounts,
           debtAccounts: updatedDebtAccounts
+      };
+
+      if (budgetAdjustments) {
+          updatePayload.budgetConfig = {
+              ...data.budgetConfig,
+              livingCategories: budgetAdjustments
+          };
+      }
+
+      updateData(updatePayload);
+  };
+
+  const handleRebalanceConfirm = () => {
+      if (!pendingExpense) return;
+      
+      const updatedCategories = data.budgetConfig.livingCategories.map(cat => {
+          const pullAmount = rebalanceMap[cat.name] || 0;
+          if (pullAmount > 0) {
+              return { 
+                  ...cat, 
+                  originalBudget: cat.originalBudget || cat.budget, // Store original if not already set
+                  budget: (cat.budget || 0) - pullAmount 
+              };
+          }
+          return cat;
       });
 
-      setShowExpenseModal(false);
-      setExpenseAmount('');
-      setExpenseNote('');
+      processExpense(pendingExpense, updatedCategories);
+      setShowRebalanceModal(false);
+      setPendingExpense(null);
+  };
+
+  const handleRebalanceSkip = () => {
+      if (pendingExpense) processExpense(pendingExpense);
+      setShowRebalanceModal(false);
+      setPendingExpense(null);
+  };
+
+  const handleRebalanceCancel = () => {
+      setShowRebalanceModal(false);
+      setPendingExpense(null);
+      // Re-open expense modal maybe? For now just cancel.
+  };
+
+  const updateRebalanceAmount = (catName: string, value: number) => {
+      setRebalanceMap({ ...rebalanceMap, [catName]: value });
   };
 
   const confirmDeleteExpense = (id: string) => {
@@ -365,30 +458,6 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       setPendingAccountEdit(null);
   };
 
-  const updateBudgetLimit = (categoryName: string, newLimit: number) => {
-      const newCategories = data.budgetConfig.livingCategories.map(cat => 
-          cat.name === categoryName ? { ...cat, budget: newLimit } : cat
-      );
-      updateData({ 
-          budgetConfig: { ...data.budgetConfig, livingCategories: newCategories } 
-      });
-  };
-
-  // Helpers
-  const getCategorySpend = (catName: string) => {
-      return data.expenses
-        .filter(e => e.categoryName === catName && e.date >= cycleStartStr)
-        .reduce((sum, e) => sum + e.amount, 0);
-  };
-
-  const getCategoryColor = (spent: number, budget: number) => {
-      const pct = (spent / budget) * 100;
-      if (pct < 50) return '#5CB870';
-      if (pct < 80) return '#D29922';
-      if (pct < 100) return '#F85149';
-      return '#8B0000';
-  };
-
   // Unified Activity Feed
   const getAllTransactions = () => {
       const all: any[] = [];
@@ -421,6 +490,16 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
   const remainingReconcile = absDiff - totalAssigned;
   const isReconcileValid = Math.abs(remainingReconcile) < 0.05;
 
+  // Rebalance Calculations
+  const availableDonors = data.budgetConfig.livingCategories.filter(c => {
+      if (c.locked) return false;
+      if (pendingExpense && c.name === pendingExpense.categoryName) return false;
+      const spent = getCategorySpend(c.name);
+      return (c.budget || 0) - spent > 0;
+  });
+  
+  const totalPulled = Object.values(rebalanceMap).reduce((sum: number, val: number) => sum + val, 0);
+
   return (
     <div className="space-y-6 animate-slide-up">
       
@@ -444,6 +523,29 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                 <span className="text-xs text-textSecondary font-medium">Debts</span>
                 <span className="font-mono font-bold text-alert">-{totalDebt.toLocaleString()}</span>
             </div>
+        </div>
+      </div>
+
+      {/* Asset Only Mode Toggle */}
+      <div 
+        onClick={toggleAssetMode}
+        className={`flex justify-between items-center p-3 rounded-xl border cursor-pointer transition-all active:scale-[0.99] ${data.assetOnlyMode ? 'bg-primary/10 border-primary shadow-lg shadow-primary/5' : 'bg-card border-border'}`}
+      >
+        <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${data.assetOnlyMode ? 'bg-primary text-white' : 'bg-background text-textSecondary'}`}>
+                {data.assetOnlyMode ? <Shield size={18} /> : <ShieldAlert size={18} />}
+            </div>
+            <div>
+                <p className={`text-sm font-bold ${data.assetOnlyMode ? 'text-primary' : 'text-textPrimary'}`}>
+                    Asset-Only Mode
+                </p>
+                <p className="text-[10px] text-textSecondary">
+                    {data.assetOnlyMode ? 'Credit cards blocked for spending' : 'Spending allowed on all accounts'}
+                </p>
+            </div>
+        </div>
+        <div className={`w-10 h-5 rounded-full relative transition-colors ${data.assetOnlyMode ? 'bg-primary' : 'bg-border'}`}>
+            <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${data.assetOnlyMode ? 'left-6' : 'left-1'}`} />
         </div>
       </div>
 
@@ -477,11 +579,13 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       }>
           {data.debtAccounts.map(acc => {
               const paidOff = acc.startingBalance - acc.currentBalance;
+              const isLocked = data.assetOnlyMode;
               return (
-                  <div key={acc.id} className="mb-5 last:mb-0 group">
+                  <div key={acc.id} className={`mb-5 last:mb-0 group ${isLocked ? 'opacity-40' : ''}`}>
                       <div className="flex justify-between text-sm mb-1.5">
                           <span style={{ color: acc.color }} className="font-bold flex items-center gap-2">
                               {acc.name}
+                              {isLocked && <Lock size={12} className="text-textSecondary" />}
                           </span>
                           <span 
                             className="font-mono cursor-pointer hover:text-white flex items-center gap-1 text-sm"
@@ -520,12 +624,15 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                   const spent = getCategorySpend(cat.name);
                   const budget = cat.budget || 1;
                   const color = getCategoryColor(spent, budget);
+                  const isReduced = cat.originalBudget && cat.originalBudget > budget;
+                  
                   return (
                       <div key={idx} className="group">
                           <div className="flex justify-between items-center mb-1.5">
                               <div className="flex items-center gap-2.5">
                                   <span className="text-lg">{cat.icon}</span>
                                   <span className="text-sm font-medium">{cat.name}</span>
+                                  {cat.locked && <Lock size={10} className="text-textSecondary" />}
                               </div>
                               <div className="text-xs font-mono flex items-center gap-1 bg-background/50 px-2 py-0.5 rounded">
                                   <span className={spent > budget ? 'text-alert' : 'text-textPrimary'}>{Math.round(spent)}</span>
@@ -538,6 +645,11 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                               </div>
                           </div>
                           <ProgressBar value={spent} max={budget} color={color} className="h-2" />
+                          {isReduced && (
+                              <p className="text-[9px] text-textMuted mt-1 ml-1">
+                                  ↓ reduced from {data.userProfile.currency}{cat.originalBudget} (rebalanced)
+                              </p>
+                          )}
                       </div>
                   )
               })}
@@ -651,7 +763,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
         isOpen={showExpenseModal} 
         onClose={() => setShowExpenseModal(false)} 
         title="Add Expense"
-        footer={<Button fullWidth onClick={handleAddExpense}>ADD EXPENSE</Button>}
+        footer={<Button fullWidth onClick={checkBudgetAndAddExpense}>ADD EXPENSE</Button>}
       >
           <div className="space-y-4">
               <Select 
@@ -686,11 +798,14 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                           <option key={acc.id} value={acc.id}>{acc.name}</option>
                       ))}
                   </optgroup>
-                  <optgroup label="Credit Cards (Debt)">
-                      {data.debtAccounts.map(acc => (
-                          <option key={acc.id} value={acc.id}>{acc.name}</option>
-                      ))}
-                  </optgroup>
+                  {/* Hide Debt Optgroup if Asset Only Mode is active */}
+                  {!data.assetOnlyMode && (
+                      <optgroup label="Credit Cards (Debt)">
+                          {data.debtAccounts.map(acc => (
+                              <option key={acc.id} value={acc.id}>{acc.name}</option>
+                          ))}
+                      </optgroup>
+                  )}
               </Select>
 
               <div className="grid grid-cols-2 gap-3">
@@ -718,6 +833,103 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                 onChange={(e) => setExpenseNote(e.target.value)}
                 placeholder="Dinner with friends..."
               />
+          </div>
+      </Modal>
+
+      {/* REBALANCE MODAL */}
+      <Modal
+        isOpen={showRebalanceModal}
+        onClose={handleRebalanceCancel}
+        title="⚠️ Budget Exceeded"
+        footer={
+            <div className="flex flex-col gap-2 w-full">
+                 <Button 
+                    fullWidth 
+                    onClick={handleRebalanceConfirm} 
+                    disabled={totalPulled < rebalanceDeficit}
+                    className="shadow-lg shadow-accent/20"
+                >
+                    CONFIRM REBALANCE ({Math.min(100, (totalPulled/rebalanceDeficit)*100).toFixed(0)}%)
+                </Button>
+                <div className="flex gap-2">
+                    <Button 
+                        variant="ghost" 
+                        fullWidth 
+                        onClick={handleRebalanceSkip} 
+                        className="border-alert text-alert hover:bg-alert hover:text-white hover:border-alert bg-transparent"
+                    >
+                        ALLOW OVERSPEND
+                    </Button>
+                    <Button variant="secondary" fullWidth onClick={handleRebalanceCancel}>
+                        CANCEL
+                    </Button>
+                </div>
+            </div>
+        }
+      >
+          <div className="space-y-4">
+             <div className="bg-card/50 p-4 rounded-xl border border-border text-center">
+                 <p className="text-sm text-textSecondary mb-1">
+                     <span className="font-bold text-white">{expenseCategory}</span> is over budget by
+                 </p>
+                 <p className="text-3xl font-mono font-bold text-alert mb-2">
+                     {data.userProfile.currency}{rebalanceDeficit.toFixed(2)}
+                 </p>
+                 <div className="flex justify-between items-center text-xs bg-background/50 p-2 rounded-lg">
+                     <span className="text-textSecondary">Still need to cover:</span>
+                     <span className={`font-mono font-bold ${rebalanceDeficit - totalPulled > 0 ? 'text-warning' : 'text-accent'}`}>
+                         {data.userProfile.currency}{Math.max(0, rebalanceDeficit - totalPulled).toFixed(2)}
+                     </span>
+                 </div>
+             </div>
+
+             <p className="text-xs text-textSecondary uppercase tracking-widest font-bold ml-1">Pull funds from:</p>
+             
+             <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                 {availableDonors.length === 0 && (
+                     <p className="text-center text-xs text-textMuted italic py-4">No available budgets found to rebalance from.</p>
+                 )}
+                 {availableDonors.map(cat => {
+                     const currentPull = rebalanceMap[cat.name] || 0;
+                     const spent = getCategorySpend(cat.name);
+                     const available = (Number(cat.budget) || 0) - spent;
+                     
+                     return (
+                         <div key={cat.name} className="bg-background/30 p-3 rounded-lg border border-border/30">
+                             <div className="flex justify-between mb-2">
+                                 <div className="flex items-center gap-2">
+                                     <span>{cat.icon}</span>
+                                     <span className="text-sm font-medium">{cat.name}</span>
+                                 </div>
+                                 <span className="text-xs font-mono text-textSecondary">
+                                     Avail: {data.userProfile.currency}{available.toFixed(0)}
+                                 </span>
+                             </div>
+                             
+                             <input 
+                                type="range" 
+                                min="0" 
+                                max={available} 
+                                step="1"
+                                value={currentPull}
+                                onChange={(e) => updateRebalanceAmount(cat.name, parseFloat(e.target.value))}
+                                className="w-full accent-accent h-1.5 bg-border rounded-lg appearance-none cursor-pointer mb-2"
+                             />
+                             
+                             <div className="flex justify-between items-center">
+                                 <div className="flex gap-1">
+                                    <button onClick={() => updateRebalanceAmount(cat.name, 0)} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">None</button>
+                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(available * 0.25))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">25%</button>
+                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(available * 0.5))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">50%</button>
+                                 </div>
+                                 <span className={`font-mono font-bold ${currentPull > 0 ? 'text-accent' : 'text-textMuted'}`}>
+                                     -{Number(currentPull)}
+                                 </span>
+                             </div>
+                         </div>
+                     )
+                 })}
+             </div>
           </div>
       </Modal>
 

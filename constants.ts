@@ -1,3 +1,4 @@
+
 import { AppData, BudgetConfig, DebtAccount, DebtGoal, DebtPayment, FitnessGoals, UserProfile, WhoopData } from './types';
 
 export const APP_DATA_KEY = 'life-command-center-data-v1';
@@ -25,9 +26,9 @@ export const INITIAL_DEBT_GOAL: DebtGoal = {
 export const INITIAL_BUDGET_CONFIG: BudgetConfig = {
   cycleStartDay: 1,
   fixedObligations: [
-    { name: "Rent/Mortgage", budget: 1500, icon: "🏠", subcategories: ["Rent", "Mortgage", "Property Tax", "HOA"] },
+    { name: "Rent/Mortgage", budget: 1500, icon: "🏠", subcategories: ["Rent", "Mortgage", "Property Tax", "HOA"], locked: true },
     { name: "Utilities", budget: 200, icon: "💡", subcategories: ["Electric", "Water", "Gas", "Internet", "Phone"] },
-    { name: "Insurance", budget: 150, icon: "🛡️", subcategories: ["Car", "Health", "Life", "Home"] },
+    { name: "Insurance", budget: 150, icon: "🛡️", subcategories: ["Car", "Health", "Life", "Home"], locked: true },
     { name: "Subscriptions", budget: 50, icon: "🔄", subcategories: ["Streaming", "Software", "Memberships"] }
   ],
   livingCategories: [
@@ -147,5 +148,6 @@ export const INITIAL_APP_DATA: AppData = {
   workouts: [],
   meals: [],
   nutritionQuickChips: DEFAULT_QUICK_CHIPS,
-  initialized: false
+  initialized: false,
+  assetOnlyMode: false
 };
