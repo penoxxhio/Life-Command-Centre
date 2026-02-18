@@ -110,8 +110,44 @@ export const parseMealLog = async (description: string): Promise<Partial<Meal> |
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
-  You are a nutrition analyzer. The user will describe a meal they ate. Estimate the nutrition.
-  Respond ONLY with a JSON object, no other text, no markdown.
+  You are an expert nutritionist database. Analyze the user's meal description and return precise nutritional estimates.
+
+  PORTION RULES (when quantity is NOT specified):
+  - "rice" = 1 standard cup cooked (200g)
+  - "chicken breast" = 1 medium piece (150g)
+  - "bread" = 1 regular slice or 1 small flatbread
+  - "eggs" = 1 large egg
+  - "salad" = 1 side plate (~150g)
+  - Any protein without quantity = 1 standard serving (120-150g)
+  - Any drink = 1 regular cup/glass (250ml)
+  - "plate of [food]" = standard restaurant portion
+
+  REGIONAL FOOD AWARENESS:
+  - The user is based in the UAE. Recognize Arabic, South Asian, and Middle Eastern foods.
+  - "machboos" / "kabsa" = spiced rice with meat, ~600-700 cal per plate
+  - "shawarma" = 1 wrap with garlic sauce, ~450-550 cal
+  - "karak" = sweet chai tea with condensed milk, ~120 cal per cup
+  - "manakeesh" = flatbread with cheese/zaatar, ~350-450 cal
+  - "fattoush" = Lebanese salad, ~150-200 cal
+  - "hummus" = assume ~3 tablespoons (100g), ~170 cal
+  - "biryani" = 1 plate with raita, ~650-750 cal
+  - "daal" = 1 bowl lentil curry, ~200-250 cal
+  - Default cooking oil for Arabic food = ghee or vegetable oil
+
+  COOKING METHOD IMPACT:
+  - Fried items: add 30-50% more fat/calories vs grilled
+  - "grilled chicken" vs "fried chicken" = significant calorie difference
+  - Assume grilled/baked unless stated fried
+
+  ACCURACY RULES:
+  - Use USDA-equivalent nutritional data as baseline
+  - Round calories to nearest 5
+  - Round macros (protein, carbs, fats) to nearest 0.5g
+  - For combined meals, calculate each component separately then sum
+  - Always estimate slightly HIGH rather than low for weight management
+  - Fiber, sugar, sodium, etc. should be realistic, not zero — estimate based on ingredients
+
+  Respond ONLY with a JSON object matching the required schema.
   `;
   
   try {
@@ -147,8 +183,26 @@ export const analyzeFoodImage = async (base64Data: string, mimeType: string): Pr
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
-  Analyze this image of food. Identify the meal and estimate the nutritional content for the entire visible portion.
-  Respond ONLY with a JSON object.
+  You are an expert nutritionist analyzing a photo of food. Identify every item visible and estimate total nutritional content.
+
+  ANALYSIS METHOD:
+  1. Identify each food item in the image
+  2. Estimate portion size using visual cues (plate size, utensils for scale, container size)
+  3. Calculate nutrition for each item separately, then sum totals
+  4. Use the "name" field to list what you identified (e.g. "Grilled chicken with rice and salad")
+
+  PORTION ESTIMATION FROM IMAGES:
+  - Use the plate/bowl as reference: standard dinner plate = 25cm diameter
+  - Half a plate of rice ≈ 1.5 cups cooked
+  - A piece of meat the size of a palm ≈ 120-150g
+  - A full plate = generous restaurant portion
+  - Consider depth/piling of food
+
+  REGIONAL AWARENESS: The user is based in the UAE. Recognize Arabic, Middle Eastern, and South Asian dishes by appearance.
+
+  ACCURACY: Estimate slightly HIGH rather than low. Include realistic values for all micronutrients based on visible ingredients, do not return zeros.
+
+  Respond ONLY with a JSON object matching the required schema.
   `;
 
   try {
@@ -195,10 +249,22 @@ export const refineMealLog = async (currentMeal: Partial<Meal>, instruction: str
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
-  Here is the current nutrition data for a meal: ${JSON.stringify(currentMeal)}.
-  The user has provided additional context/instruction: "${instruction}".
-  Update the nutrition data based on this context (e.g., adjust quantities, add/remove ingredients).
-  Respond ONLY with the updated JSON object.
+  Here is the current nutrition estimate for a meal:
+  ${JSON.stringify(currentMeal)}
+
+  The user wants to adjust it: "${instruction}"
+
+  RULES:
+  - If they say "add X" → add that item's nutrition to the existing totals
+  - If they say "remove X" → subtract that item's estimated nutrition
+  - If they say "more X" or "less X" → scale that ingredient up or down proportionally
+  - If they say "it was fried not grilled" → recalculate fat and calories accordingly
+  - If they correct portion size (e.g. "it was a large plate" or "only half") → scale all values
+  - Update the "name" field to reflect the change
+  - Keep all other values that weren't affected by the change
+  - Estimate slightly HIGH rather than low
+
+  Respond ONLY with the complete updated JSON object matching the required schema.
   `;
 
   try {

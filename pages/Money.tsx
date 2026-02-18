@@ -495,7 +495,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       if (c.locked) return false;
       if (pendingExpense && c.name === pendingExpense.categoryName) return false;
       const spent = getCategorySpend(c.name);
-      return (c.budget || 0) - spent > 0;
+      return (c.budget ?? 0) - spent > 0;
   });
   
   const totalPulled = Object.values(rebalanceMap).reduce((sum: number, val: number) => sum + val, 0);
@@ -887,7 +887,8 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                  {availableDonors.map(cat => {
                      const currentPull = rebalanceMap[cat.name] || 0;
                      const spent = getCategorySpend(cat.name);
-                     const available = (Number(cat.budget) || 0) - spent;
+                     const budgetVal = cat.budget ?? 0;
+                     const available = budgetVal - spent;
                      
                      return (
                          <div key={cat.name} className="bg-background/30 p-3 rounded-lg border border-border/30">
@@ -914,8 +915,8 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                              <div className="flex justify-between items-center">
                                  <div className="flex gap-1">
                                     <button onClick={() => updateRebalanceAmount(cat.name, 0)} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">None</button>
-                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(Number(available) * 0.25))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">25%</button>
-                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(Number(available) * 0.5))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">50%</button>
+                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(available * 0.25))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">25%</button>
+                                    <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(available * 0.5))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">50%</button>
                                  </div>
                                  <span className={`font-mono font-bold ${currentPull > 0 ? 'text-accent' : 'text-textMuted'}`}>
                                      -{currentPull}
