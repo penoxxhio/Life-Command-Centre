@@ -1,0 +1,84 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Fix Button location
+        run: |
+          if [ -f Button.tsx ] && [ -f components/ui/Button.tsx ]; then
+            rm Button.tsx
+          elif [ -f Button.tsx ]; then
+            mv Button.tsx components/ui/Button.tsx
+          fi
+
+      - name: Remove importmap from index.html
+        run: |
+          python3 -c "
+          import re
+          html = open('index.html').read()
+          html = re.sub(r'\s*<script type=\"importmap\">.*?</script>', '', html, flags=re.DOTALL)
+          open('index.html', 'w').write(html)
+          "
+
+      - name: Ensure base path in vite config
+        run: |
+          python3 -c "
+          content = open('vite.config.ts').read()
+          if \"base:\" not in content:
+              content = content.replace(
+                  \"plugins: [react()],\",
+                  \"plugins: [react()],\n    base: '/Life-Command-Centre/',\"
+              )
+              open('vite.config.ts', 'w').write(content)
+          "
+
+      - name: Ensure manifest paths
+        run: |
+          python3 -c "
+          import json
+          m = json.load(open('manifest.json'))
+          m['start_url'] = '/Life-Command-Centre/'
+          m['scope'] = '/Life-Command-Centre/'
+          json.dump(m, open('manifest.json', 'w'), indent=2)
+          "
+
+      - name: Build
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
