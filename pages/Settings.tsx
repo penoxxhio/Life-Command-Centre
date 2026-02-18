@@ -74,7 +74,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   const [recIncomeSource, setRecIncomeSource] = useState('');
 
   // API Key Input
-  const [apiKeyInput, setApiKeyInput] = useState(localStorage.getItem('gemini_api_key') || '');
+  const [apiKeyInput, setApiKeyInput] = useState('');
 
   // Health Import State
   const [healthJsonText, setHealthJsonText] = useState('');
@@ -89,7 +89,10 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
     } else {
         setHealthDataInfo('No health data imported.');
     }
-  }, []);
+    
+    // Refresh Key Input when opening settings
+    setApiKeyInput(localStorage.getItem('gemini_api_key') || '');
+  }, [activeSection]);
 
   // --- Handlers ---
   

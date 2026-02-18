@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Home, Banknote, Activity, Utensils, Settings, Sparkles } from 'lucide-react';
+import { Home, Banknote, Activity, Utensils, Settings, Sparkles, AlertTriangle } from 'lucide-react';
 import { Tab, UserProfile } from '../types';
 import { getAiUsage, UsageStats, isAiReady } from '../services/geminiService';
 
@@ -21,7 +21,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
       setIsReady(isAiReady());
     };
     checkUsage();
-    const interval = setInterval(checkUsage, 5000); // Check every 5 seconds
+    // Increase poll frequency to 2s to ensure "live" feel
+    const interval = setInterval(checkUsage, 2000);
     return () => clearInterval(interval);
   }, [activeTab]);
 
@@ -51,8 +52,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
     <div className="min-h-screen bg-background text-textPrimary font-sans selection:bg-accent/30">
       <div className="max-w-[430px] mx-auto min-h-screen flex flex-col relative bg-background shadow-2xl">
         
-        {/* Header - Sticky with Blur & Safe Area Padding. Increased pt to 2.5rem to fix status bar overlap */}
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/50 px-5 flex justify-between items-center pb-4 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
+        {/* Header - Increased top padding to 3.5rem to ensure clearance on all devices */}
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/50 px-5 flex justify-between items-center pb-4 pt-[calc(env(safe-area-inset-top)+3.5rem)]">
           <div className="flex-1">
             <div className="text-textSecondary font-mono text-[10px] uppercase tracking-widest mb-0.5">
               {dateString} • WK {weekNum}
@@ -63,20 +64,32 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
           </div>
           
           <div className="flex items-center gap-2">
-            {isReady && usage && (
-              <div className="flex flex-col items-end mr-1">
-                <div className="flex items-center gap-1.5 text-ai text-[10px] font-mono font-bold">
-                  <Sparkles size={12} className={usage.isRateLimited ? 'text-alert' : 'text-ai'} />
-                  <span>{Math.max(0, usage.quotaLimit - usage.todayCount)} LEFT</span>
+            {/* AI Status Indicator - Always Visible */}
+            <div className="flex flex-col items-end mr-1">
+              {isReady && usage ? (
+                <>
+                  <div className="flex items-center gap-1.5 text-ai text-[10px] font-mono font-bold">
+                    <Sparkles size={12} className={usage.isRateLimited ? 'text-alert' : 'text-ai'} />
+                    <span>{Math.max(0, usage.quotaLimit - usage.todayCount)} LEFT</span>
+                  </div>
+                  <div className="w-12 h-1 bg-border rounded-full overflow-hidden mt-1">
+                     <div 
+                      className={`h-full transition-all duration-500 ${usage.isRateLimited ? 'bg-alert' : 'bg-ai'}`}
+                      style={{ width: `${(usage.todayCount / usage.quotaLimit) * 100}%` }}
+                     />
+                  </div>
+                </>
+              ) : (
+                <div 
+                   className="flex items-center gap-1.5 text-textMuted text-[10px] font-mono font-bold cursor-pointer"
+                   onClick={() => onTabChange(Tab.SETTINGS)}
+                >
+                    <AlertTriangle size={12} className="text-warning" />
+                    <span>NO KEY</span>
                 </div>
-                <div className="w-12 h-1 bg-border rounded-full overflow-hidden mt-1">
-                   <div 
-                    className={`h-full transition-all duration-500 ${usage.isRateLimited ? 'bg-alert' : 'bg-ai'}`}
-                    style={{ width: `${(usage.todayCount / usage.quotaLimit) * 100}%` }}
-                   />
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+
             <button 
               onClick={() => onTabChange(Tab.SETTINGS)}
               className="p-2.5 text-textSecondary hover:text-white hover:bg-card rounded-full transition-all active:scale-95"
