@@ -13,7 +13,17 @@ interface HomeProps {
 }
 
 export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Helper to get local YYYY-MM-DD
+  const getLocalYMD = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = getLocalYMD(today);
   
   // Load Health Data
   const importedToday = getHealthDay(todayStr);
@@ -23,11 +33,11 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
   const totalDebtStart = data.debtGoal.startingTotal;
   const currentTotalDebt = data.debtAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
   const debtPaid = Math.max(0, totalDebtStart - currentTotalDebt);
-  const debtProgress = Math.min(100, (debtPaid / totalDebtStart) * 100);
+  const debtProgress = totalDebtStart > 0 ? Math.min(100, (debtPaid / totalDebtStart) * 100) : 0;
   
-  const today = new Date();
   const targetDate = new Date(data.debtGoal.targetDate);
-  const diffTime = Math.abs(targetDate.getTime() - today.getTime());
+  targetDate.setHours(0, 0, 0, 0);
+  const diffTime = Math.max(0, targetDate.getTime() - today.getTime());
   const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   // 2. Auto-Tracked Logic
@@ -36,36 +46,26 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
   const proteinGoal = data.fitnessGoals.proteinGoal;
   const proteinMet = todaysProtein >= proteinGoal;
   
-  // Sleep logic (Prefer Imported)
+  // Sleep logic
   const sleepHours = latestSleep?.asleepHours || data.whoopData.hoursSlept;
   const sleepGoal = data.fitnessGoals.sleepGoal;
   
-  // Training logic (Merge manual + imported)
+  // Training logic
   const dayOfWeek = today.getDay(); 
   const startOfWeek = new Date(today);
   startOfWeek.setDate(today.getDate() - dayOfWeek);
-  const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
+  const startOfWeekStr = getLocalYMD(startOfWeek);
   
-  // Collect all unique days with a workout this week
   const trainingDays = new Set<string>();
-  
-  // Add manual completed workout dates
   data.workouts.forEach(w => {
-    if (w.date >= startOfWeekStr && w.completed) {
-      trainingDays.add(w.date);
-    }
+    if (w.date >= startOfWeekStr && w.completed) trainingDays.add(w.date);
   });
-
-  // Add imported workout dates
   const imp = getHealthImport();
   if (imp) {
     imp.days.forEach(d => {
-      if (d.date >= startOfWeekStr && d.workouts && d.workouts.length > 0) {
-        trainingDays.add(d.date);
-      }
+      if (d.date >= startOfWeekStr && d.workouts && d.workouts.length > 0) trainingDays.add(d.date);
     });
   }
-  
   const weeklyWorkouts = trainingDays.size;
   const workoutTarget = data.fitnessGoals.weeklySessionTarget;
 
@@ -85,32 +85,55 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
   const todaysCarbs = todaysMeals.reduce((sum, m) => sum + m.carbs, 0);
   const todaysFats = todaysMeals.reduce((sum, m) => sum + m.fats, 0);
 
-  // 4. Budget Logic
+  // 4. Budget Logic - CORRECTED
   const payday = data.budgetConfig.cycleStartDay;
-  let cycleStart = new Date(today.getFullYear(), today.getMonth(), payday);
-  if (today.getDate() < payday) {
-    cycleStart = new Date(today.getFullYear(), today.getMonth() - 1, payday);
-  }
-  const cycleStartStr = cycleStart.toISOString().split('T')[0];
   
-  let nextPaydayDate = new Date(today.getFullYear(), today.getMonth(), payday);
-  if (today.getDate() >= payday) {
-    nextPaydayDate = new Date(today.getFullYear(), today.getMonth() + 1, payday);
+  // Calculate Cycle Start Date accurately
+  // Construct Date for this month's payday and previous month's payday
+  const currentMonthPayday = new Date(today.getFullYear(), today.getMonth(), payday);
+  currentMonthPayday.setHours(0,0,0,0);
+  
+  // If today is before this month's payday, the cycle started last month
+  let cycleStart = currentMonthPayday;
+  if (today < currentMonthPayday) {
+      cycleStart = new Date(today.getFullYear(), today.getMonth() - 1, payday);
   }
-  const daysUntilPayday = Math.ceil((nextPaydayDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  cycleStart.setHours(0, 0, 0, 0);
+  const cycleStartStr = getLocalYMD(cycleStart);
 
+  // Next Payday is exactly 1 month from Cycle Start
+  const nextPayday = new Date(cycleStart);
+  nextPayday.setMonth(nextPayday.getMonth() + 1);
+  nextPayday.setHours(0, 0, 0, 0);
+
+  // Calculate Days Until Payday
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysUntilPayday = Math.round((nextPayday.getTime() - today.getTime()) / msPerDay);
+
+  // Filter Spending
+  const livingCatNames = data.budgetConfig.livingCategories.map(c => c.name);
   const livingBudgetTotal = data.budgetConfig.livingCategories.reduce((sum, c) => sum + (c.budget || 0), 0);
-  const expensesThisCycle = data.expenses.filter(e => e.date >= cycleStartStr);
+  
+  const expensesThisCycle = data.expenses.filter(e => 
+      e.date >= cycleStartStr && 
+      livingCatNames.includes(e.categoryName)
+  );
+  
   const spentThisCycle = expensesThisCycle.reduce((sum, e) => sum + e.amount, 0);
   const remainingBudget = livingBudgetTotal - spentThisCycle;
-  const dailyAvailable = daysUntilPayday > 0 ? remainingBudget / daysUntilPayday : 0;
+  
+  const safeDaysDivisor = Math.max(1, daysUntilPayday);
+  const dailyAvailable = remainingBudget / safeDaysDivisor;
+  
+  const budgetProgress = Math.min(100, (spentThisCycle / livingBudgetTotal) * 100);
+  const budgetColor = budgetProgress > 100 ? '#F85149' : budgetProgress > 85 ? '#D29922' : '#58A6FF';
 
   return (
     <div className="space-y-6 animate-slide-up pb-10">
       
       {/* Section 1: Hero Card (Debt and Credit Cards) */}
       <Card 
-        className="bg-gradient-to-br from-[#161B22] to-[#0D1117] border-border shadow-lg relative overflow-hidden group"
+        className="bg-gradient-to-br from-[#161B22] to-[#0D1117] border-border/80 shadow-lg relative overflow-hidden group"
         onClick={() => onNavigate(Tab.MONEY)}
       >
         <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
@@ -162,62 +185,80 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
 
       {/* Section 2: Quick Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
-        <Card onClick={() => onNavigate(Tab.NUTRITION)} className="bg-card/50 hover:bg-card transition-colors">
-           <div className="flex justify-between items-start mb-3">
-             <Flame size={16} className="text-warning" />
+        <Card onClick={() => onNavigate(Tab.NUTRITION)} className="bg-card/50 hover:bg-card transition-colors flex flex-col justify-between h-32">
+           <div className="flex justify-between items-start">
+             <div className="p-2 bg-warning/10 rounded-lg text-warning">
+                 <Flame size={18} />
+             </div>
              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${proteinMet ? 'bg-primary/20 text-primary' : 'bg-border text-textSecondary'}`}>
                {proteinMet ? 'HIT' : 'WIP'}
              </span>
            </div>
-           <p className="text-textSecondary text-xs mb-0.5">Protein</p>
-           <p className="font-mono font-bold text-xl text-textPrimary">{Math.round(todaysProtein)}<span className="text-xs text-textSecondary font-normal">/{proteinGoal}g</span></p>
+           <div>
+               <p className="text-textSecondary text-xs mb-0.5">Protein</p>
+               <p className="font-mono font-bold text-xl text-textPrimary">{Math.round(todaysProtein)}<span className="text-xs text-textSecondary font-normal">/{proteinGoal}g</span></p>
+           </div>
         </Card>
 
-        <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors">
-           <div className="flex justify-between items-start mb-3">
-             <Moon size={16} className="text-info" />
+        <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors flex flex-col justify-between h-32">
+           <div className="flex justify-between items-start">
+             <div className="p-2 bg-info/10 rounded-lg text-info">
+                <Moon size={18} />
+             </div>
              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sleepHours >= sleepGoal ? 'bg-primary/20 text-primary' : 'bg-border text-textSecondary'}`}>
                {sleepHours >= sleepGoal ? 'HIT' : 'LOW'}
              </span>
            </div>
-           <p className="text-textSecondary text-xs mb-0.5">Sleep</p>
-           <p className="font-mono font-bold text-xl text-textPrimary">{sleepHours.toFixed(1)}<span className="text-xs text-textSecondary font-normal">/{sleepGoal}h</span></p>
+           <div>
+                <p className="text-textSecondary text-xs mb-0.5">Sleep</p>
+                <p className="font-mono font-bold text-xl text-textPrimary">{sleepHours.toFixed(1)}<span className="text-xs text-textSecondary font-normal">/{sleepGoal}h</span></p>
+           </div>
         </Card>
 
-        <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors">
-           <div className="flex justify-between items-start mb-3">
-             <Target size={16} className="text-accent" />
+        <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors flex flex-col justify-between h-32">
+           <div className="flex justify-between items-start">
+             <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                <Target size={18} />
+             </div>
              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${weeklyWorkouts >= workoutTarget ? 'bg-primary/20 text-primary' : 'bg-border text-textSecondary'}`}>
                {weeklyWorkouts}/{workoutTarget}
              </span>
            </div>
-           <p className="text-textSecondary text-xs mb-0.5">Training</p>
-           <p className="font-mono font-bold text-xl text-textPrimary">{weeklyWorkouts >= workoutTarget ? 'DONE' : 'PUSH'}</p>
+           <div>
+                <p className="text-textSecondary text-xs mb-0.5">Training</p>
+                <p className="font-mono font-bold text-xl text-textPrimary">{weeklyWorkouts >= workoutTarget ? 'DONE' : 'PUSH'}</p>
+           </div>
         </Card>
 
         {importedToday?.steps ? (
-             <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors">
-                <div className="flex justify-between items-start mb-3">
-                  <Footprints size={16} className="text-primary" />
+             <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <Footprints size={18} />
+                  </div>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-border text-textSecondary`}>
                     TODAY
                   </span>
                 </div>
-                <p className="text-textSecondary text-xs mb-0.5">Steps</p>
-                <p className="font-mono font-bold text-xl text-textPrimary">{importedToday.steps.toLocaleString()}</p>
+                <div>
+                    <p className="text-textSecondary text-xs mb-0.5">Steps</p>
+                    <p className="font-mono font-bold text-xl text-textPrimary">{importedToday.steps.toLocaleString()}</p>
+                </div>
              </Card>
         ) : (
-             <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors">
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-lg">🔋</span>
+             <Card onClick={() => onNavigate(Tab.FITNESS)} className="bg-card/50 hover:bg-card transition-colors flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <div className="text-2xl">🔋</div>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-border text-textSecondary`}>
                     WHOOP
                   </span>
                 </div>
-                <p className="text-textSecondary text-xs mb-0.5">Recovery</p>
-                <p className={`font-mono font-bold text-xl ${getRecoveryColor(recovery)}`}>
-                  {recovery > 0 ? `${recovery}%` : '--'}
-                </p>
+                <div>
+                    <p className="text-textSecondary text-xs mb-0.5">Recovery</p>
+                    <p className={`font-mono font-bold text-xl ${getRecoveryColor(recovery)}`}>
+                      {recovery > 0 ? `${recovery}%` : '--'}
+                    </p>
+                </div>
              </Card>
         )}
       </div>
@@ -261,21 +302,21 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
       </Card>
 
       {/* Section 4: Budget */}
-      <Card title="MONTHLY SPEND" onClick={() => onNavigate(Tab.MONEY)}>
+      <Card title="LIVING BUDGET" onClick={() => onNavigate(Tab.MONEY)}>
          <div className="flex justify-between items-center mb-4">
            <div>
              <p className={`text-2xl font-mono font-bold ${remainingBudget < 0 ? 'text-alert' : 'text-primary'}`}>
-               {Math.round(remainingBudget)} <span className="text-xs text-textSecondary font-sans font-normal">{data.userProfile.currency} Left</span>
+               {Math.round(remainingBudget).toLocaleString()} <span className="text-xs text-textSecondary font-sans font-normal">{data.userProfile.currency} Left</span>
              </p>
            </div>
            <div className="bg-card border border-border px-3 py-1.5 rounded-lg text-center">
              <p className="text-[10px] text-textSecondary uppercase">Daily Safe</p>
-             <p className="font-mono font-bold text-info">{Math.round(dailyAvailable)}</p>
+             <p className={`font-mono font-bold ${dailyAvailable < 0 ? 'text-alert' : 'text-info'}`}>{Math.round(dailyAvailable)}</p>
            </div>
          </div>
-         <ProgressBar value={spentThisCycle} max={livingBudgetTotal} color="#58A6FF" className="mb-2 h-2.5" />
+         <ProgressBar value={spentThisCycle} max={livingBudgetTotal} color={budgetColor} className="mb-2 h-2.5" />
          <div className="flex justify-between text-[10px] text-textSecondary font-mono mt-2">
-           <span>{Math.round(spentThisCycle)} SPENT</span>
+           <span>{Math.round(spentThisCycle).toLocaleString()} SPENT (LIVING)</span>
            <span>{daysUntilPayday} DAYS TO PAYDAY</span>
          </div>
       </Card>

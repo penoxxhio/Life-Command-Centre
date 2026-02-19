@@ -75,6 +75,23 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
+      
+      /* Custom Scrollbar for Webkit */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #30363D; 
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #8B949E; 
+      }
+
       * {
         -webkit-tap-highlight-color: transparent;
       }

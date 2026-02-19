@@ -505,21 +505,21 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       
       {/* Net Worth */}
       <div className="grid grid-cols-2 gap-4">
-        <Card className="flex flex-col justify-center items-center py-6 bg-gradient-to-br from-card to-background border-border">
-             <span className="text-[10px] text-textSecondary uppercase font-mono tracking-widest">Net Worth</span>
+        <Card className="flex flex-col justify-center items-center py-6 bg-gradient-to-br from-accent/10 to-card border-accent/20">
+             <span className="text-[10px] text-textSecondary uppercase font-mono tracking-widest font-bold">Net Worth</span>
              <div className="flex items-center gap-2 mt-2">
-                <h2 className={`text-2xl font-mono font-bold tracking-tight ${netWorth >= 0 ? 'text-primary' : 'text-alert'}`}>
+                <h2 className={`text-2xl font-mono font-bold tracking-tight ${netWorth >= 0 ? 'text-white' : 'text-alert'}`}>
                     {netWorth.toLocaleString()}
                 </h2>
-                {netWorth >= 0 ? <TrendingUp size={16} className="text-primary"/> : <TrendingDown size={16} className="text-alert"/>}
+                {netWorth >= 0 ? <TrendingUp size={16} className="text-accent"/> : <TrendingDown size={16} className="text-alert"/>}
              </div>
         </Card>
         <div className="flex flex-col gap-3">
-            <div className="bg-card/80 border border-border/50 rounded-xl p-3 flex justify-between items-center shadow-sm">
+            <div className="bg-card border border-border/50 rounded-xl p-3 flex justify-between items-center shadow-sm">
                 <span className="text-xs text-textSecondary font-medium">Assets</span>
                 <span className="font-mono font-bold text-primary">{totalAssets.toLocaleString()}</span>
             </div>
-            <div className="bg-card/80 border border-border/50 rounded-xl p-3 flex justify-between items-center shadow-sm">
+            <div className="bg-card border border-border/50 rounded-xl p-3 flex justify-between items-center shadow-sm">
                 <span className="text-xs text-textSecondary font-medium">Debts</span>
                 <span className="font-mono font-bold text-alert">-{totalDebt.toLocaleString()}</span>
             </div>
@@ -564,7 +564,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                     <span className="text-sm font-medium">{acc.name}</span>
                  </div>
                  <div className="flex items-center gap-2">
-                     <span className="font-mono font-bold">{acc.balance.toLocaleString()}</span>
+                     <span className="font-mono font-bold text-white">{acc.balance.toLocaleString()}</span>
                      <Edit2 size={12} className="text-textSecondary opacity-0 group-hover:opacity-50 transition-opacity"/>
                  </div>
              </div>
@@ -573,7 +573,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
 
       {/* Credit Cards */}
       <Card title="DEBT REPAYMENT" action={
-          <Button variant="ghost" className="h-8 px-3 text-xs bg-card hover:bg-border border-border/50" onClick={() => setShowPaymentModal(true)}>
+          <Button variant="ghost" className="h-7 px-3 text-[10px] bg-card hover:bg-border border-border/50" onClick={() => setShowPaymentModal(true)}>
               PAY OFF
           </Button>
       }>
@@ -662,7 +662,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
           <div className="space-y-4">
               {Object.keys(groupedTransactions).sort((a, b) => b.localeCompare(a)).map(date => (
                   <div key={date}>
-                      <p className="text-xs text-textSecondary mb-2 font-medium sticky top-[70px] bg-background/95 backdrop-blur py-1 z-10 w-fit px-2 rounded">
+                      <p className="text-xs text-textSecondary mb-2 font-medium sticky top-[70px] bg-background/95 backdrop-blur py-1 z-10 w-fit px-2 rounded shadow-sm border border-border/30">
                           {new Date(date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
                       </p>
                       <div className="space-y-2">
@@ -671,17 +671,21 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                               const isIncome = txn.type === 'income';
                               const isTransfer = txn.type === 'transfer';
                               
+                              let borderClass = 'border-l-4 border-l-border'; // Default expense
+                              if (isIncome) borderClass = 'border-l-4 border-l-primary';
+                              if (isTransfer) borderClass = 'border-l-4 border-l-info';
+
                               return (
-                                  <div key={txn.id} className="bg-card border border-border/50 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                                  <div key={txn.id} className={`bg-card border-y border-r border-border/50 rounded-r-xl rounded-l-md p-3 flex justify-between items-center shadow-sm hover:bg-background/50 transition-colors ${borderClass}`}>
                                       <div className="flex items-center gap-3">
-                                          <div className={`text-2xl w-10 h-10 flex items-center justify-center rounded-lg ${isTransfer ? 'bg-info/10 text-info' : isIncome ? 'bg-primary/10 text-primary' : 'bg-background/50'}`}>
-                                              {isExpense ? txn.icon : isTransfer ? <ArrowRightLeft size={18}/> : <TrendingUp size={18}/>}
+                                          <div className={`text-xl w-8 h-8 flex items-center justify-center rounded-lg ${isTransfer ? 'bg-info/10 text-info' : isIncome ? 'bg-primary/10 text-primary' : 'bg-background/50 text-textSecondary'}`}>
+                                              {isExpense ? txn.icon : isTransfer ? <ArrowRightLeft size={16}/> : <TrendingUp size={16}/>}
                                           </div>
                                           <div>
                                               <p className="text-sm font-bold text-textPrimary">
                                                   {isExpense ? txn.categoryName : isTransfer ? 'Transfer' : txn.source}
                                               </p>
-                                              <p className="text-xs text-textSecondary">
+                                              <p className="text-[10px] text-textSecondary truncate max-w-[150px]">
                                                   {isExpense && (txn.subcategoryName || 'General')}
                                                   {isTransfer && `To/From Account`}
                                                   {txn.note && <span className="text-textMuted"> • {txn.note}</span>}
@@ -689,7 +693,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                                           </div>
                                       </div>
                                       <div className="flex items-center gap-3">
-                                          <span className={`font-mono font-bold ${isIncome ? 'text-primary' : isTransfer ? 'text-info' : 'text-textPrimary'}`}>
+                                          <span className={`font-mono font-bold text-sm ${isIncome ? 'text-primary' : isTransfer ? 'text-info' : 'text-textPrimary'}`}>
                                               {isIncome ? '+' : ''}{isExpense ? '-' : ''}{txn.amount}
                                           </span>
                                           <button 
@@ -699,9 +703,9 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                                                   else if (isIncome) confirmDeleteIncome(txn.id);
                                                   else confirmDeleteTransfer(txn.id);
                                               }} 
-                                              className="text-textSecondary hover:text-alert transition-colors p-3"
+                                              className="text-textSecondary hover:text-alert transition-colors p-2"
                                           >
-                                              <Trash2 size={16} />
+                                              <Trash2 size={14} />
                                           </button>
                                       </div>
                                   </div>
@@ -849,10 +853,15 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                     disabled={totalPulled < rebalanceDeficit}
                     className="shadow-lg shadow-accent/20"
                 >
-                    CONFIRM REBALANCE ({Math.min(100, (totalPulled/rebalanceDeficit)*100).toFixed(0)}%)
+                    CONFIRM REBALANCE ({Math.min(100, (Number(totalPulled)/Number(rebalanceDeficit))*100).toFixed(0)}%)
                 </Button>
                 <div className="flex gap-2">
-                    <Button variant="danger" fullWidth onClick={handleRebalanceSkip} className="bg-transparent border border-alert text-alert hover:bg-alert hover:text-white">
+                    <Button 
+                        variant="ghost" 
+                        fullWidth 
+                        onClick={handleRebalanceSkip} 
+                        className="border-alert text-alert hover:bg-alert hover:text-white hover:border-alert bg-transparent"
+                    >
                         ALLOW OVERSPEND
                     </Button>
                     <Button variant="secondary" fullWidth onClick={handleRebalanceCancel}>
@@ -872,8 +881,8 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                  </p>
                  <div className="flex justify-between items-center text-xs bg-background/50 p-2 rounded-lg">
                      <span className="text-textSecondary">Still need to cover:</span>
-                     <span className={`font-mono font-bold ${rebalanceDeficit - totalPulled > 0 ? 'text-warning' : 'text-accent'}`}>
-                         {data.userProfile.currency}{Math.max(0, rebalanceDeficit - totalPulled).toFixed(2)}
+                     <span className={`font-mono font-bold ${Number(rebalanceDeficit) - Number(totalPulled) > 0 ? 'text-warning' : 'text-accent'}`}>
+                         {data.userProfile.currency}{Math.max(0, Number(rebalanceDeficit) - Number(totalPulled)).toFixed(2)}
                      </span>
                  </div>
              </div>
@@ -887,8 +896,8 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                  {availableDonors.map(cat => {
                      const currentPull = rebalanceMap[cat.name] || 0;
                      const spent = getCategorySpend(cat.name);
-                     const budgetVal = cat.budget ?? 0;
-                     const available = budgetVal - spent;
+                     const catBudget = cat.budget ?? 0;
+                     const available = catBudget - spent;
                      
                      return (
                          <div key={cat.name} className="bg-background/30 p-3 rounded-lg border border-border/30">
@@ -919,7 +928,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                                     <button onClick={() => updateRebalanceAmount(cat.name, Math.floor(available * 0.5))} className="text-[10px] px-2 py-1 bg-card border border-border rounded hover:bg-border">50%</button>
                                  </div>
                                  <span className={`font-mono font-bold ${currentPull > 0 ? 'text-accent' : 'text-textMuted'}`}>
-                                     -{currentPull}
+                                     -{Number(currentPull)}
                                  </span>
                              </div>
                          </div>
