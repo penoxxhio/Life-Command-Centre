@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface CardProps {
@@ -12,12 +11,12 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({ children, className = '', onClick, title, action }) => {
   return (
     <div 
-      className={`bg-card border border-border/60 rounded-xl p-5 mb-4 shadow-sm relative overflow-hidden transition-all duration-200 ${onClick ? 'cursor-pointer hover:border-border hover:bg-card/80 active:scale-[0.99]' : ''} ${className}`}
+      className={`bg-card border border-border rounded-md p-4 mb-4 shadow-sm ${onClick ? 'cursor-pointer active:opacity-90 transition-opacity' : ''} ${className}`}
       onClick={onClick}
     >
       {(title || action) && (
-        <div className="flex justify-between items-center mb-4">
-          {title && <h3 className="text-textSecondary font-mono uppercase text-[10px] tracking-widest font-bold">{title}</h3>}
+        <div className="flex justify-between items-center mb-3">
+          {title && <h3 className="text-textSecondary font-mono uppercase text-[11px] tracking-wider">{title}</h3>}
           {action && <div>{action}</div>}
         </div>
       )}

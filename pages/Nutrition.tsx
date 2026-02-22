@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { AppData, Meal } from '../types';
 import { Card } from '../components/ui/Card';
@@ -8,9 +7,8 @@ import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
 import { parseMealLog, analyzeFoodImage, refineMealLog, isAiReady } from '../services/geminiService';
-import { Trash2, Sparkles, Camera, RotateCw, Send, Plus, Download, AlertCircle, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
+import { Trash2, Sparkles, Camera, RotateCw, Send, Plus, Download, AlertCircle } from 'lucide-react';
 import { exportData } from '../services/storageService';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
 
 interface NutritionProps {
   data: AppData;
@@ -37,9 +35,6 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
-  // History State
-  const [expandedDate, setExpandedDate] = useState<string | null>(null);
-
   const todayStr = new Date().toISOString().split('T')[0];
   const todaysMeals = data.meals.filter(m => m.date === todayStr);
 
@@ -48,29 +43,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
   const totalPro = todaysMeals.reduce((sum, m) => sum + m.protein, 0);
   const totalCarb = todaysMeals.reduce((sum, m) => sum + m.carbs, 0);
   const totalFat = todaysMeals.reduce((sum, m) => sum + m.fats, 0);
-  const totalSugar = todaysMeals.reduce((sum, m) => sum + m.sugar, 0);
-  const totalFiber = todaysMeals.reduce((sum, m) => sum + m.fiber, 0);
   
-  // History Logic
-  const historyDates: string[] = Array.from(new Set(data.meals.map(m => m.date)))
-    .filter((d): d is string => typeof d === 'string' && d !== todayStr)
-    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-
-  // Chart Data Preparation (Last 7 Days)
-  const chartData = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i));
-      const dateStr = d.toISOString().split('T')[0];
-      const dayMeals = data.meals.filter(m => m.date === dateStr);
-      const cals = dayMeals.reduce((sum, m) => sum + m.calories, 0);
-      return {
-          date: dateStr,
-          day: d.toLocaleDateString('en-US', { weekday: 'short' }),
-          cals: Math.round(cals),
-          goal: data.fitnessGoals.calorieGoal
-      };
-  });
-
   const handleAiLog = async () => {
     if (!mealInput || !aiAvailable) return;
     setIsAnalyzing(true);
@@ -164,12 +137,8 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
     setMealInput(item);
   };
 
-  const toggleHistoryDate = (date: string) => {
-    setExpandedDate(expandedDate === date ? null : date);
-  };
-
   return (
-    <div className="space-y-6 animate-slide-up pb-10">
+    <div className="space-y-6 animate-slide-up">
       
       {/* 1. Daily Summary */}
       <Card title="MACRO TARGETS" action={
@@ -177,59 +146,30 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
             <Download size={14} />
           </Button>
       }>
-        <div className="grid grid-cols-3 gap-y-6 gap-x-2 text-center mb-6">
-           <div className="space-y-1">
-             <p className="text-[10px] text-textSecondary uppercase tracking-wider font-bold">Calories</p>
-             <p className="font-mono font-bold text-lg text-white">{Math.round(totalCals)}</p>
-             <div className="w-full h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-ai" style={{width: `${Math.min(100, (totalCals/data.fitnessGoals.calorieGoal)*100)}%`}} />
-             </div>
+        <div className="grid grid-cols-4 gap-2 text-center mb-4">
+           <div className="bg-background/40 p-2 rounded-lg border border-border/50">
+             <p className="text-xs text-textSecondary">Cals</p>
+             <p className="font-mono font-bold text-white">{Math.round(totalCals)}</p>
            </div>
-           
-           <div className="space-y-1">
-             <p className="text-[10px] text-textSecondary uppercase tracking-wider font-bold">Protein</p>
-             <p className="font-mono font-bold text-lg text-primary">{Math.round(totalPro)}g</p>
-             <div className="w-full h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-primary" style={{width: `${Math.min(100, (totalPro/data.fitnessGoals.proteinGoal)*100)}%`}} />
-             </div>
+           <div className="bg-background/40 p-2 rounded-lg border border-border/50">
+             <p className="text-xs text-textSecondary">Pro</p>
+             <p className="font-mono font-bold text-primary">{Math.round(totalPro)}g</p>
            </div>
-
-           <div className="space-y-1">
-             <p className="text-[10px] text-textSecondary uppercase tracking-wider font-bold">Fat</p>
-             <p className="font-mono font-bold text-lg text-alert">{Math.round(totalFat)}g</p>
-             <div className="w-full h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-alert" style={{width: `${Math.min(100, (totalFat/data.fitnessGoals.fatGoal)*100)}%`}} />
-             </div>
+           <div className="bg-background/40 p-2 rounded-lg border border-border/50">
+             <p className="text-xs text-textSecondary">Carb</p>
+             <p className="font-mono font-bold text-warning">{Math.round(totalCarb)}g</p>
            </div>
-
-           <div className="space-y-1">
-             <p className="text-[10px] text-textSecondary uppercase tracking-wider font-bold">Carbs</p>
-             <p className="font-mono font-bold text-lg text-warning">{Math.round(totalCarb)}g</p>
-             <div className="w-full h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-warning" style={{width: `${Math.min(100, (totalCarb/data.fitnessGoals.carbGoal)*100)}%`}} />
-             </div>
-           </div>
-
-           <div className="space-y-1">
-             <p className="text-[10px] text-textSecondary uppercase tracking-wider font-bold">Sugar</p>
-             <p className="font-mono font-bold text-lg text-pink-400">{Math.round(totalSugar)}g</p>
-             <div className="w-full h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-pink-400" style={{width: `${Math.min(100, (totalSugar/data.fitnessGoals.sugarLimit)*100)}%`}} />
-             </div>
-           </div>
-
-           <div className="space-y-1">
-             <p className="text-[10px] text-textSecondary uppercase tracking-wider font-bold">Fiber</p>
-             <p className="font-mono font-bold text-lg text-emerald-400">{Math.round(totalFiber)}g</p>
-             <div className="w-full h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-400" style={{width: `${Math.min(100, (totalFiber/data.fitnessGoals.fiberGoal)*100)}%`}} />
-             </div>
+           <div className="bg-background/40 p-2 rounded-lg border border-border/50">
+             <p className="text-xs text-textSecondary">Fat</p>
+             <p className="font-mono font-bold text-alert">{Math.round(totalFat)}g</p>
            </div>
         </div>
-        
-        <div className="flex justify-between items-center text-xs text-textSecondary bg-background/30 p-2 rounded-lg border border-border/30">
-            <span>Goal: {data.fitnessGoals.calorieGoal} kcal</span>
-            <span>{Math.max(0, data.fitnessGoals.calorieGoal - totalCals)} remaining</span>
+        <div className="space-y-2">
+           <ProgressBar value={totalCals} max={data.fitnessGoals.calorieGoal} color="#A371F7" className="h-1.5" />
+           <div className="flex justify-between text-[10px] text-textSecondary">
+              <span>{Math.round((totalCals / data.fitnessGoals.calorieGoal) * 100)}% CONSUMED</span>
+              <span>GOAL: {data.fitnessGoals.calorieGoal}</span>
+           </div>
         </div>
       </Card>
 
@@ -246,7 +186,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
         <div className="flex gap-2 mb-3">
            <div className="relative flex-1">
              <input 
-                className={`w-full bg-background/50 border border-border rounded-xl pl-4 pr-10 py-3 text-sm focus:ring-2 focus:ring-accent/50 outline-none ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full bg-background/50 border border-border rounded-lg pl-4 pr-10 py-3 text-sm focus:ring-2 focus:ring-accent/50 outline-none ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
                 placeholder={aiAvailable ? "e.g. 2 eggs and toast..." : "AI Features Unavailable"}
                 value={mealInput}
                 onChange={e => setMealInput(e.target.value)}
@@ -254,7 +194,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
                 disabled={!aiAvailable}
              />
              <button 
-                className={`absolute right-2 top-1/2 -translate-y-1/2 text-accent hover:text-white p-1.5 rounded-md hover:bg-background ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 text-accent hover:text-white p-1 ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={handleAiLog}
                 disabled={isAnalyzing || !aiAvailable}
              >
@@ -262,7 +202,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
              </button>
            </div>
            <button 
-             className={`bg-card border border-border hover:bg-border text-textSecondary hover:text-white w-12 rounded-xl flex items-center justify-center transition-colors ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+             className={`bg-card border border-border hover:bg-border text-textSecondary hover:text-white w-12 rounded-lg flex items-center justify-center transition-colors ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
              onClick={() => aiAvailable && fileInputRef.current?.click()}
              disabled={!aiAvailable}
            >
@@ -285,7 +225,7 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
                key={idx}
                onClick={() => aiAvailable && quickChipAdd(chip)}
                disabled={!aiAvailable}
-               className={`whitespace-nowrap bg-background/30 border border-border/50 text-[11px] px-3 py-1.5 rounded-full hover:bg-accent/20 hover:text-accent transition-colors ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+               className={`whitespace-nowrap bg-background/30 border border-border/50 text-xs px-3 py-1.5 rounded-full hover:bg-accent/20 hover:text-accent transition-colors ${!aiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
              >
                {chip}
              </button>
@@ -318,102 +258,11 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
           ))}
           {todaysMeals.length === 0 && (
             <div className="text-center py-8 text-textSecondary text-xs italic">
-              No food logged today.
+              No food logged yet.
             </div>
           )}
         </div>
       </div>
-
-      {/* 4. Weekly Chart */}
-      <Card title="WEEKLY PERFORMANCE" action={<BarChart3 size={16} className="text-textSecondary"/>}>
-          <div className="w-full h-48 text-xs">
-              <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
-                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#8B949E', fontSize: 10}} dy={10} />
-                      <YAxis hide domain={[0, 'dataMax + 200']} />
-                      <ReferenceLine y={data.fitnessGoals.calorieGoal} stroke="#2EA043" strokeDasharray="3 3" />
-                      <Tooltip
-                          cursor={{fill: '#161B22', opacity: 0.5}}
-                          contentStyle={{backgroundColor: '#161B22', borderColor: '#30363D', borderRadius: '8px', fontSize: '12px'}}
-                          itemStyle={{color: '#F0F6FC'}}
-                          labelStyle={{display: 'none'}}
-                          formatter={(value: number) => [`${value} kcal`, 'Intake']}
-                      />
-                      <Bar dataKey="cals" radius={[4, 4, 0, 0]}>
-                          {chartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.cals > entry.goal ? '#F85149' : '#A371F7'} />
-                          ))}
-                      </Bar>
-                  </BarChart>
-              </ResponsiveContainer>
-          </div>
-      </Card>
-
-      {/* 5. History List */}
-      {historyDates.length > 0 && (
-        <div className="pb-4">
-          <h3 className="text-textSecondary font-mono text-[10px] uppercase tracking-widest mb-3 ml-1">History Log</h3>
-          <div className="space-y-3">
-            {historyDates.map(date => {
-              const dayMeals = data.meals.filter(m => m.date === date);
-              const dayCals = dayMeals.reduce((s, m) => s + m.calories, 0);
-              const dayPro = dayMeals.reduce((s, m) => s + m.protein, 0);
-              const dayCarb = dayMeals.reduce((s, m) => s + m.carbs, 0);
-              const dayFat = dayMeals.reduce((s, m) => s + m.fats, 0);
-              const daySugar = dayMeals.reduce((s, m) => s + m.sugar, 0);
-              const dayFiber = dayMeals.reduce((s, m) => s + m.fiber, 0);
-              const isExpanded = expandedDate === date;
-              const dateObj = new Date(date);
-              const isOver = dayCals > data.fitnessGoals.calorieGoal;
-              
-              return (
-                <div key={date} className="bg-card border border-border/50 rounded-xl overflow-hidden transition-all shadow-sm">
-                  <div 
-                    className="p-3 cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors flex justify-between items-center"
-                    onClick={() => toggleHistoryDate(date)}
-                  >
-                    <div className="flex items-center gap-3">
-                        <div className={`w-1.5 h-10 rounded-full ${isOver ? 'bg-alert' : 'bg-ai'}`} />
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-textPrimary">
-                                    {dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                </span>
-                            </div>
-                            <div className="flex gap-2 text-[10px] font-mono text-textSecondary mt-0.5">
-                                <span><span className="text-primary">{Math.round(dayPro)}</span> P</span>
-                                <span><span className="text-warning">{Math.round(dayCarb)}</span> C</span>
-                                <span><span className="text-alert">{Math.round(dayFat)}</span> F</span>
-                                <span><span className="text-pink-400">{Math.round(daySugar)}</span> S</span>
-                                <span><span className="text-emerald-400">{Math.round(dayFiber)}</span> Fib</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-end">
-                         <span className="font-mono text-sm font-bold text-white">{Math.round(dayCals)}</span>
-                         <span className="text-[10px] text-textSecondary uppercase">{isExpanded ? 'Hide' : 'Details'}</span>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="bg-background/30 p-3 border-t border-border/50 space-y-2 animate-in slide-in-from-top-1 duration-200">
-                        {dayMeals.map(meal => (
-                            <div key={meal.id} className="flex justify-between items-center text-xs">
-                                <span className="text-textPrimary truncate flex-1 pr-2">{meal.name}</span>
-                                <span className="font-mono text-textSecondary whitespace-nowrap">
-                                    {Math.round(meal.calories)} <span className="text-[9px] opacity-50">kcal</span>
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <ConfirmDialog 
         isOpen={confirmConfig.isOpen} 

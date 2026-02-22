@@ -10,13 +10,14 @@ import { Select } from '../components/ui/Select';
 import { exportData, importData } from '../services/storageService';
 import { getHealthImport, saveHealthImport, clearHealthImport } from '../services/healthImportService';
 import { isAiReady, getAiUsage, UsageStats } from '../services/geminiService';
-import { requestNotificationPermission } from '../services/notificationService';
+import { requestNotificationPermission, getNotificationPermissionStatus, sendNotification } from '../services/notificationService';
 import { 
   Download, Upload, Plus, Trash2, List, 
   ChevronRight, ArrowLeft, Wallet, Activity, Database, 
   Utensils, Moon, Target, CreditCard, Landmark, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Bell, HeartPulse, UserCircle,
-  Lock, Unlock
+  Lock, Unlock, Edit2, Info, Settings as SettingsIcon, ShieldCheck
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface SettingsProps {
   data: AppData;
@@ -30,6 +31,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   const [activeSection, setActiveSection] = useState<SettingsSection>('MAIN');
   const [aiConnected, setAiConnected] = useState(isAiReady());
   const [aiUsage, setAiUsage] = useState<UsageStats | null>(null);
+  const [notifStatus, setNotifStatus] = useState(getNotificationPermissionStatus());
 
   // --- Modal States ---
   const [showBankModal, setShowBankModal] = useState(false);
@@ -58,6 +60,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   const [catName, setCatName] = useState('');
   const [catBudget, setCatBudget] = useState('');
   const [catIcon, setCatIcon] = useState('💸');
+  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
 
   const [activeCategoryIndex, setActiveCategoryIndex] = useState<number | null>(null);
   const [subcatInput, setSubcatInput] = useState('');
@@ -197,31 +200,27 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
   };
 
   const updateProfile = (key: keyof UserProfile, value: any) => {
-    const newData: Partial<AppData> = {
+    updateData({
       userProfile: {
         ...data.userProfile,
         [key]: value
       }
-    };
-    
-    // CRITICAL: Ensure Budget Cycle stays in sync with Payday profile setting
-    if (key === 'payday') {
-        newData.budgetConfig = {
-            ...data.budgetConfig,
-            cycleStartDay: parseInt(value)
-        };
-    }
-
-    updateData(newData);
+    });
   };
 
   const enableNotifications = async () => {
       const granted = await requestNotificationPermission();
+      setNotifStatus(getNotificationPermissionStatus());
       if (granted) {
           alert("Notifications enabled! Reminders active at 9AM, 1PM, and 8PM.");
+          sendNotification("System Active", "Life Command notifications are now operational.");
       } else {
           alert("Permission denied. Check browser settings.");
       }
+  };
+
+  const testNotification = () => {
+      sendNotification("Test Notification", "This is a test of the Life Command notification system.");
   };
 
   // Money Handlers
@@ -275,22 +274,79 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
       });
   };
 
-  const addCategory = () => {
+  const saveCategory = () => {
       if (!catName) return;
-      const newCat: BudgetCategory = {
-          name: catName,
-          budget: parseFloat(catBudget) || 100,
-          icon: catIcon,
-          subcategories: [],
-          locked: false
-      };
-      updateData({
-          budgetConfig: {
-              ...data.budgetConfig,
-              livingCategories: [...data.budgetConfig.livingCategories, newCat]
+      const amount = parseFloat(catBudget) || 0;
+      
+      if (editingCategoryIndex !== null) {
+          // Edit existing
+          const updatedCats = [...data.budgetConfig.livingCategories];
+          const oldName = updatedCats[editingCategoryIndex].name;
+          
+          updatedCats[editingCategoryIndex] = {
+              ...updatedCats[editingCategoryIndex],
+              name: catName,
+              budget: amount,
+              icon: catIcon
+          };
+
+          const updates: Partial<AppData> = {
+              budgetConfig: {
+                  ...data.budgetConfig,
+                  livingCategories: updatedCats
+              }
+          };
+
+          // If name changed, update associated expenses and recurring transactions
+          if (oldName !== catName) {
+              updates.expenses = data.expenses.map(e => 
+                  e.categoryName === oldName ? { ...e, categoryName: catName } : e
+              );
+              updates.recurringTransactions = data.recurringTransactions.map(r => 
+                  r.categoryName === oldName ? { ...r, categoryName: catName } : r
+              );
           }
-      });
-      setCatName(''); setCatBudget(''); setShowCatModal(false);
+
+          updateData(updates);
+      } else {
+          // Add new
+          const newCat: BudgetCategory = {
+              name: catName,
+              budget: amount,
+              icon: catIcon,
+              subcategories: [],
+              locked: false
+          };
+          updateData({
+              budgetConfig: {
+                  ...data.budgetConfig,
+                  livingCategories: [...data.budgetConfig.livingCategories, newCat]
+              }
+          });
+      }
+      
+      setCatName(''); 
+      setCatBudget(''); 
+      setCatIcon('💸');
+      setEditingCategoryIndex(null);
+      setShowCatModal(false);
+  };
+
+  const openEditCategory = (idx: number) => {
+      const cat = data.budgetConfig.livingCategories[idx];
+      setCatName(cat.name);
+      setCatBudget(cat.budget?.toString() || '');
+      setCatIcon(cat.icon);
+      setEditingCategoryIndex(idx);
+      setShowCatModal(true);
+  };
+
+  const openAddCategory = () => {
+      setCatName('');
+      setCatBudget('');
+      setCatIcon('💸');
+      setEditingCategoryIndex(null);
+      setShowCatModal(true);
   };
 
   const confirmRemoveCategory = (idx: number) => {
@@ -403,30 +459,43 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           <p className="text-sm text-textSecondary">Manage your preferences</p>
        </div>
 
-       <MenuButton 
-          icon={UserCircle} 
-          label="Personal Profile" 
-          subtext="Name, Currency, Schedule"
-          onClick={() => setActiveSection('PROFILE')} 
-       />
-       <MenuButton 
-          icon={Wallet} 
-          label="Money & Assets" 
-          subtext="Banks, Debts, Recurring"
-          onClick={() => setActiveSection('MONEY')} 
-       />
-       <MenuButton 
-          icon={Activity} 
-          label="Health & Fitness" 
-          subtext="Macros, Targets, Import"
-          onClick={() => setActiveSection('HEALTH')} 
-       />
-       <MenuButton 
-          icon={Database} 
-          label="System & AI" 
-          subtext="API Status, Backup, Reset"
-          onClick={() => setActiveSection('SYSTEM')} 
-       />
+       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+           <MenuButton 
+              icon={UserCircle} 
+              label="Personal Profile" 
+              subtext="Name, Currency, Schedule"
+              onClick={() => setActiveSection('PROFILE')} 
+           />
+       </motion.div>
+       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+           <MenuButton 
+              icon={Wallet} 
+              label="Money & Assets" 
+              subtext="Banks, Debts, Recurring"
+              onClick={() => setActiveSection('MONEY')} 
+           />
+       </motion.div>
+       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+           <MenuButton 
+              icon={Activity} 
+              label="Health & Fitness" 
+              subtext="Macros, Targets, Import"
+              onClick={() => setActiveSection('HEALTH')} 
+           />
+       </motion.div>
+       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+           <MenuButton 
+              icon={Database} 
+              label="System & AI" 
+              subtext={
+                <div className="flex items-center gap-2">
+                    <span>API Status, Backup, Reset</span>
+                    {notifStatus === 'granted' && <Bell size={10} className="text-accent" />}
+                </div>
+              }
+              onClick={() => setActiveSection('SYSTEM')} 
+           />
+       </motion.div>
 
        {/* AI Usage Indicator */}
        {aiUsage && aiConnected && (
@@ -559,7 +628,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           </div>
       </Card>
 
-      <Card title="BUDGET CATEGORIES" action={<button onClick={() => setShowCatModal(true)} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
+      <Card title="BUDGET CATEGORIES" action={<button onClick={openAddCategory} className="text-accent p-1 bg-background border border-border rounded transition-transform active:scale-90"><Plus size={16} /></button>}>
           <p className="text-[10px] text-textSecondary mb-2">Locked categories are protected from rebalancing when you overspend elsewhere.</p>
           <div className="grid grid-cols-2 gap-2">
               {data.budgetConfig.livingCategories.map((cat, idx) => (
@@ -572,6 +641,7 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
                           <button onClick={() => toggleCategoryLock(idx)} className={`p-1.5 hover:text-white rounded transition-colors ${cat.locked ? 'text-accent' : 'text-textSecondary'}`}>
                              {cat.locked ? <Lock size={12}/> : <Unlock size={12}/>}
                           </button>
+                          <button onClick={() => openEditCategory(idx)} className="text-textSecondary hover:text-white p-1.5"><Edit2 size={12}/></button>
                           <button onClick={() => openSubcatModal(idx)} className="text-textSecondary hover:text-white p-1.5"><List size={12}/></button>
                           <button onClick={() => confirmRemoveCategory(idx)} className="text-textSecondary hover:text-alert p-1.5"><Trash2 size={12}/></button>
                       </div>
@@ -629,73 +699,98 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
 
   const renderSystemSettings = () => (
     <div className="space-y-6 animate-slide-up pb-20">
-      <Card title="GEMINI AI CONFIGURATION" action={<Sparkles size={16} className={aiConnected ? "text-accent" : "text-textMuted"}/>}>
-         <div className="space-y-4">
-             <div className={`p-3 rounded-lg border ${aiConnected ? 'bg-accent/10 border-accent/20' : 'bg-alert/10 border-alert/20'}`}>
-                 <div className="flex items-center gap-2 mb-1">
-                     {aiConnected ? <CheckCircle2 size={16} className="text-accent"/> : <AlertCircle size={16} className="text-alert"/>}
-                     <p className={`text-sm font-bold ${aiConnected ? 'text-accent' : 'text-alert'}`}>
-                         {aiConnected ? 'AI System Online' : 'API Key Missing'}
-                     </p>
-                 </div>
-                 <p className="text-xs text-textSecondary">
-                     {aiConnected 
-                        ? 'Natural language processing for meals and workouts is active.' 
-                        : 'Enter a valid Google Gemini API Key to enable AI features.'}
-                 </p>
-             </div>
-             
-             <div className="relative">
-                 <Input 
-                    type="password" 
-                    label="API Key" 
-                    placeholder="AIzaSy..." 
-                    value={apiKeyInput}
-                    onChange={e => setApiKeyInput(e.target.value)}
-                 />
-                 <div className="absolute right-0 top-[26px]">
-                    <Button onClick={saveApiKey} className="h-[42px] px-4 text-xs">SAVE</Button>
-                 </div>
-             </div>
-             
-             <p className="text-[10px] text-textMuted">
-                 Keys are stored locally on your device. Get a free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-accent hover:underline">Google AI Studio</a>.
-             </p>
-         </div>
+      <Card title="AI ENGINE CONFIG">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Sparkles size={18} className={aiConnected ? 'text-accent' : 'text-alert'} />
+              <span className="text-xs font-bold uppercase tracking-tight">Status: {aiConnected ? 'Operational' : 'API Key Missing'}</span>
+            </div>
+            {aiConnected && <CheckCircle2 size={16} className="text-accent" />}
+          </div>
+          <div className="space-y-3">
+              <Input 
+                  label="API Key (Optional)"
+                  type="password"
+                  placeholder="Paste key to override system default"
+                  value={apiKeyInput}
+                  onChange={e => setApiKeyInput(e.target.value)}
+              />
+              <Button fullWidth onClick={saveApiKey}>UPDATE CONFIGURATION</Button>
+              <p className="text-[10px] text-textSecondary">
+                 Leave empty to use the built-in system key ({process.env.API_KEY ? 'Present' : 'Missing'}).
+              </p>
+          </div>
       </Card>
 
-      <Card title="DATA MANAGEMENT">
-         <div className="space-y-3">
-             <Button variant="secondary" fullWidth onClick={() => exportData(data, 'file', 'all')}>
-                 <Download size={16} className="mr-2" /> EXPORT FULL BACKUP
-             </Button>
-             <Button variant="secondary" fullWidth onClick={handleImport}>
-                 <Upload size={16} className="mr-2" /> RESTORE FROM BACKUP
-             </Button>
-             <Button variant="ghost" fullWidth onClick={enableNotifications} className="justify-between border-dashed">
-                 <span className="flex items-center gap-2"><Bell size={16}/> Enable Reminders</span>
-                 <span className="text-[10px] bg-accent/10 text-accent px-2 py-0.5 rounded">BETA</span>
-             </Button>
-         </div>
+      <Card title="SYSTEM NOTIFICATIONS">
+          <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${notifStatus === 'granted' ? 'bg-accent/10 text-accent' : 'bg-alert/10 text-alert'}`}>
+                      <Bell size={18} />
+                  </div>
+                  <div>
+                      <p className="text-xs font-bold uppercase tracking-tight">
+                          Status: {notifStatus === 'granted' ? 'Active' : notifStatus === 'denied' ? 'Blocked' : 'Inactive'}
+                      </p>
+                      <p className="text-[10px] text-textSecondary">
+                          {notifStatus === 'granted' ? '3x daily reminders active' : 'Permission required for reminders'}
+                      </p>
+                  </div>
+              </div>
+              {notifStatus === 'granted' && <ShieldCheck size={16} className="text-accent" />}
+          </div>
+          
+          <div className="space-y-3">
+              {notifStatus !== 'granted' ? (
+                  <Button variant="secondary" fullWidth onClick={enableNotifications}>
+                      <Bell size={16} className="mr-2" /> ENABLE NOTIFICATIONS
+                  </Button>
+              ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                      <Button variant="secondary" fullWidth onClick={testNotification}>
+                          TEST PUSH
+                      </Button>
+                      <Button variant="ghost" fullWidth onClick={enableNotifications} className="text-textSecondary border-border/50">
+                          RE-REQUEST
+                      </Button>
+                  </div>
+              )}
+              
+              <div className="bg-background/50 p-3 rounded-xl border border-border/50">
+                  <div className="flex items-start gap-2">
+                      <Info size={14} className="text-info shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-textSecondary leading-relaxed">
+                          Reminders are sent at 09:00, 13:00, and 20:00. Ensure your browser allows notifications for this site. 
+                          If "Blocked", you must reset permissions in your browser's site settings.
+                      </p>
+                  </div>
+              </div>
+          </div>
       </Card>
 
-      <div className="mt-8 text-center">
-          <Button variant="ghost" className="text-alert border-alert/30 hover:bg-alert/10 w-full" onClick={() => {
-              if(confirm("Factory Reset: This will wipe all data. Are you sure?")) {
-                  localStorage.clear();
-                  window.location.reload();
+      <Card title="LOCAL STORAGE MANAGEMENT">
+          <p className="text-[10px] text-textSecondary mb-4 leading-relaxed">All data is stored exclusively in your browser. Export frequently to prevent data loss or to sync across devices.</p>
+          <div className="grid grid-cols-2 gap-3">
+              <Button variant="secondary" fullWidth onClick={() => exportData(data, 'file')}>
+                  <Download size={16} className="mr-2" /> EXPORT ALL
+              </Button>
+              <Button variant="ghost" fullWidth onClick={handleImport}>
+                  <Upload size={16} className="mr-2" /> RESTORE
+              </Button>
+          </div>
+          <Button variant="danger" fullWidth onClick={() => {
+              if (confirm('Delete all app data? This cannot be undone.')) {
+                localStorage.clear();
+                window.location.reload();
               }
-          }}>
-              FACTORY RESET APP
+          }} className="mt-4 text-[11px] h-10 min-h-0">
+              PURGE LOCAL DATABASE
           </Button>
-          <p className="text-[10px] text-textMuted mt-4">
-              Life Command Center v2.5.4<br/>
-              Local-first architecture. No cloud sync.
-          </p>
-      </div>
+      </Card>
     </div>
   );
 
+  // Consolidate header logic to fix TypeScript comparison error on activeSection === 'MAIN'
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center mb-4">
@@ -755,12 +850,12 @@ export const SettingsPage: React.FC<SettingsProps> = ({ data, updateData, onBack
           </div>
       </Modal>
 
-      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title="Add Spending Category">
+      <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title={editingCategoryIndex !== null ? "Edit Category" : "Add Spending Category"}>
           <div className="space-y-4">
               <Input label="Category Name" placeholder="e.g. Subscriptions" value={catName} onChange={e => setCatName(e.target.value)} />
               <Input label="Monthly Budget" type="number" inputMode="decimal" value={catBudget} onChange={e => setCatBudget(e.target.value)} />
               <Input label="Emoji Icon" placeholder="💰" value={catIcon} onChange={e => setCatIcon(e.target.value)} />
-              <Button fullWidth onClick={addCategory} className="mt-2">CREATE CATEGORY</Button>
+              <Button fullWidth onClick={saveCategory} className="mt-2">{editingCategoryIndex !== null ? "UPDATE CATEGORY" : "CREATE CATEGORY"}</Button>
           </div>
       </Modal>
 

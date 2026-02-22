@@ -9,8 +9,9 @@ import { SettingsPage } from './pages/Settings';
 import { AppData, Tab } from './types';
 import { loadData, saveData } from './services/storageService';
 import { INITIAL_APP_DATA } from './constants';
-import { Command } from 'lucide-react';
+import { Command, Sparkles } from 'lucide-react';
 import { initNotificationService } from './services/notificationService';
+import { motion, AnimatePresence } from 'motion/react';
 
 const App: React.FC = () => {
   const [data, setData] = useState<AppData>(INITIAL_APP_DATA);
@@ -20,8 +21,8 @@ const App: React.FC = () => {
   // Load data on mount
   useEffect(() => {
     const init = async () => {
-      // Simulate a brief loading time for a smoother visual entry/branding moment
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      // Reduced delay for faster entry while maintaining branding moment
+      await new Promise(resolve => setTimeout(resolve, 600));
       
       const stored = loadData();
       const processed = processRecurringTransactions(stored);
@@ -173,25 +174,67 @@ const App: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center text-white relative overflow-hidden">
-        {/* Decorative background blob */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent/5 rounded-full blur-3xl" />
+        {/* Decorative background blobs */}
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.2, 1],
+            opacity: [0.05, 0.1, 0.05],
+          }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-accent rounded-full blur-[120px]" 
+        />
         
-        <div className="relative z-10 flex flex-col items-center">
-            <div className="mb-8 p-6 rounded-3xl bg-card border border-border shadow-2xl shadow-accent/5 relative">
-               <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full animate-pulse-slow"></div>
-               <Command size={48} className="text-accent relative z-10" />
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 flex flex-col items-center"
+        >
+            <motion.div 
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+              className="mb-8 p-8 rounded-[2.5rem] bg-card border border-border shadow-2xl shadow-accent/10 relative group"
+            >
+               <div className="absolute inset-0 bg-accent/20 blur-2xl rounded-full animate-pulse-slow group-hover:bg-accent/30 transition-colors"></div>
+               <Command size={56} className="text-accent relative z-10" />
+               <motion.div 
+                animate={{ opacity: [0, 1, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute -top-2 -right-2 text-ai"
+               >
+                 <Sparkles size={20} />
+               </motion.div>
+            </motion.div>
+            
+            <motion.h1 
+              initial={{ letterSpacing: "0.1em" }}
+              animate={{ letterSpacing: "0.3em" }}
+              className="text-4xl font-bold uppercase font-mono text-textPrimary mb-6"
+            >
+              Life Command
+            </motion.h1>
+            
+            <div className="flex items-center gap-3 mb-8">
+               {[0, 1, 2].map(i => (
+                 <motion.div 
+                   key={i}
+                   animate={{ 
+                     scale: [1, 1.5, 1],
+                     backgroundColor: ["#2EA043", "#5CB870", "#2EA043"] 
+                   }}
+                   transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                   className="w-2 h-2 rounded-full" 
+                 />
+               ))}
             </div>
             
-            <h1 className="text-3xl font-bold tracking-[0.2em] uppercase font-mono text-textPrimary mb-4">Life Command</h1>
-            
-            <div className="flex items-center gap-2 mb-6">
-               <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{animationDelay: '0ms'}} />
-               <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{animationDelay: '150ms'}} />
-               <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{animationDelay: '300ms'}} />
-            </div>
-            
-            <p className="text-[10px] text-textSecondary font-mono uppercase tracking-widest opacity-60">System Initializing</p>
-        </div>
+            <motion.p 
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-[10px] text-textSecondary font-mono uppercase tracking-[0.4em]"
+            >
+              System Initializing
+            </motion.p>
+        </motion.div>
       </div>
     );
   }

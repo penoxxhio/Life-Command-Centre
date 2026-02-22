@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { AppData, UserProfile, BankAccount, FitnessGoals, DebtAccount } from '../types';
 import { Button } from './ui/Button';
@@ -103,12 +102,6 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         minPayment: 0,
         color: ['#F85149', '#D29922', '#A371F7', '#58A6FF'][idx % 4]
     }));
-    
-    // Ensure Budget Config matches profile Payday
-    const budgetConfig = {
-        ...INITIAL_APP_DATA.budgetConfig,
-        cycleStartDay: parseInt(payday)
-    };
 
     // 3. Fitness & Nutrition Logic
     let baseCals = 2000;
@@ -170,7 +163,6 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         userProfile,
         bankAccounts: initialBank,
         debtAccounts: debtAccounts,
-        budgetConfig: budgetConfig,
         fitnessGoals: goals,
         nutritionQuickChips: quickChips,
         initialized: true

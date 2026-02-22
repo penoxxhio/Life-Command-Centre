@@ -1,18 +1,25 @@
 
+export const getNotificationPermissionStatus = (): string => {
+    if (typeof window === 'undefined') return 'unsupported';
+    const NotificationAPI = (window as any)['Notification'];
+    if (!NotificationAPI) return 'unsupported';
+    return NotificationAPI.permission;
+};
+
 export const requestNotificationPermission = async (): Promise<boolean> => {
     try {
         if (typeof window === 'undefined') return false;
         
-        // Use bracket notation to avoid direct reference to global Notification variable
         const NotificationAPI = (window as any)['Notification'];
         
         if (!NotificationAPI) {
-            console.log("Notifications not supported in this environment.");
+            console.warn("Notifications not supported in this environment.");
             return false;
         }
         
         if (NotificationAPI.permission === 'granted') return true;
         
+        // Some browsers require a user gesture, which this should be called from
         const permission = await NotificationAPI.requestPermission();
         return permission === 'granted';
     } catch (e) {
@@ -29,11 +36,19 @@ export const sendNotification = (title: string, body: string) => {
         if (!NotificationAPI) return;
 
         if (NotificationAPI.permission === 'granted') {
-            new NotificationAPI(title, {
+            const n = new NotificationAPI(title, {
                 body,
                 icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%230D1117"/><path d="M30 30 L70 30 L70 70 L30 70 Z" stroke="%232EA043" stroke-width="8" fill="none" rx="8"/><circle cx="50" cy="50" r="10" fill="%232EA043"/></svg>',
-                tag: 'life-command-reminder'
+                tag: 'life-command-reminder',
+                renotify: true
             });
+            
+            n.onclick = () => {
+                window.focus();
+                n.close();
+            };
+        } else {
+            console.warn("Notification permission not granted. Current status:", NotificationAPI.permission);
         }
     } catch (e) {
         console.error("Failed to send notification:", e);

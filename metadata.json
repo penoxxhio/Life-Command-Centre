@@ -1,7 +1,9 @@
 {
-  "name": "Life Command Center",
-  "description": "A mobile-first, AI-powered dashboard for tracking finance, fitness, and nutrition using Gemini.",
+  "name": "Life Command v2",
+  "description": "Advanced AI-powered personal dashboard for finance, fitness, and nutrition tracking with real-time insights.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone",
+    "geolocation"
   ]
 }
