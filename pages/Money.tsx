@@ -31,11 +31,16 @@ interface Split {
 export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showReconcileModal, setShowReconcileModal] = useState(false);
   
   // Filtering State
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+
+  // Detail Modal State
+  const [detailAccount, setDetailAccount] = useState<BankAccount | DebtAccount | null>(null);
+  const [detailAccountType, setDetailAccountType] = useState<'bank' | 'debt' | null>(null);
   
   // Rebalance State
   const [showRebalanceModal, setShowRebalanceModal] = useState(false);
@@ -64,6 +69,13 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
   const [expenseNote, setExpenseNote] = useState('');
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Transfer Form State
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferFrom, setTransferFrom] = useState('');
+  const [transferTo, setTransferTo] = useState('');
+  const [transferNote, setTransferNote] = useState('');
+  const [transferDate, setTransferDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Edit Value State
   const [editTitle, setEditTitle] = useState('');
@@ -116,6 +128,15 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       }
   }, [showExpenseModal, data.bankAccounts, data.debtAccounts, data.assetOnlyMode]);
 
+  useEffect(() => {
+      if (showTransferModal) {
+          if (data.bankAccounts.length > 0) {
+              setTransferFrom(data.bankAccounts[0].id);
+              setTransferTo(data.bankAccounts.length > 1 ? data.bankAccounts[1].id : data.bankAccounts[0].id);
+          }
+      }
+  }, [showTransferModal, data.bankAccounts]);
+
   const toggleAssetMode = () => {
     updateData({ assetOnlyMode: !data.assetOnlyMode });
   };
@@ -159,6 +180,55 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
 
     setShowPaymentModal(false);
     setPaymentAmount('');
+  };
+
+  const handleAddTransfer = () => {
+      if (!transferAmount || !transferFrom || !transferTo || transferFrom === transferTo) return;
+      const amount = parseFloat(transferAmount);
+      
+      const newTransfer: Transfer = {
+          id: Math.random().toString(36).substr(2, 9),
+          date: transferDate,
+          amount: amount,
+          fromAccountId: transferFrom,
+          toAccountId: transferTo,
+          note: transferNote
+      };
+
+      let updatedBankAccounts = [...data.bankAccounts];
+      let updatedDebtAccounts = [...data.debtAccounts];
+
+      // Deduct from source
+      const fromBankIdx = updatedBankAccounts.findIndex(b => b.id === transferFrom);
+      if (fromBankIdx !== -1) {
+          updatedBankAccounts[fromBankIdx] = { ...updatedBankAccounts[fromBankIdx], balance: updatedBankAccounts[fromBankIdx].balance - amount };
+      } else {
+          const fromDebtIdx = updatedDebtAccounts.findIndex(d => d.id === transferFrom);
+          if (fromDebtIdx !== -1) {
+              updatedDebtAccounts[fromDebtIdx] = { ...updatedDebtAccounts[fromDebtIdx], currentBalance: updatedDebtAccounts[fromDebtIdx].currentBalance + amount };
+          }
+      }
+
+      // Add to destination
+      const toBankIdx = updatedBankAccounts.findIndex(b => b.id === transferTo);
+      if (toBankIdx !== -1) {
+          updatedBankAccounts[toBankIdx] = { ...updatedBankAccounts[toBankIdx], balance: updatedBankAccounts[toBankIdx].balance + amount };
+      } else {
+          const toDebtIdx = updatedDebtAccounts.findIndex(d => d.id === transferTo);
+          if (toDebtIdx !== -1) {
+              updatedDebtAccounts[toDebtIdx] = { ...updatedDebtAccounts[toDebtIdx], currentBalance: Math.max(0, updatedDebtAccounts[toDebtIdx].currentBalance - amount) };
+          }
+      }
+
+      updateData({
+          bankAccounts: updatedBankAccounts,
+          debtAccounts: updatedDebtAccounts,
+          transfers: [newTransfer, ...data.transfers]
+      });
+
+      setShowTransferModal(false);
+      setTransferAmount('');
+      setTransferNote('');
   };
 
   const checkBudgetAndAddExpense = () => {
@@ -424,7 +494,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                   const currentVal = updatedDebtAccounts[cpDebtIndex].currentBalance;
                   // If Primary Received (e.g. Loan payout), Debt Increased
                   // If Primary Sent (e.g. Payment), Debt Decreased
-                  updatedDebtAccounts[cpDebtIndex].currentBalance = isPrimaryReceiving ? currentVal + amount : currentVal - amount;
+                  updatedDebtAccounts[cpDebtIndex].currentBalance = isPrimaryReceiving ? currentVal + amount : Math.max(0, currentVal - amount);
               }
 
           } else if (isIncome) {
@@ -517,6 +587,42 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       }, {} as Record<string, any[]>);
   }, [getAllTransactions]);
 
+  // Account Detail Helpers
+  const getAccountMoneyIn = (accountId: string) => {
+      let total = 0;
+      data.incomes.forEach(i => {
+          if (i.accountId === accountId && i.date >= cycleStartStr) total += i.amount;
+      });
+      data.transfers.forEach(t => {
+          if (t.toAccountId === accountId && t.date >= cycleStartStr) total += t.amount;
+      });
+      return total;
+  };
+
+  const getAccountMoneyOut = (accountId: string) => {
+      let total = 0;
+      data.expenses.forEach(e => {
+          if (e.sourceAccountId === accountId && e.date >= cycleStartStr) total += e.amount;
+      });
+      data.transfers.forEach(t => {
+          if (t.fromAccountId === accountId && t.date >= cycleStartStr) total += t.amount;
+      });
+      return total;
+  };
+
+  const getAccountNetFlow = (accountId: string) => {
+      return getAccountMoneyIn(accountId) - getAccountMoneyOut(accountId);
+  };
+
+  const getAccountRecentTransactions = (accountId: string) => {
+      return getAllTransactions.filter(txn => {
+          if (txn.type === 'expense') return txn.sourceAccountId === accountId;
+          if (txn.type === 'income') return txn.accountId === accountId;
+          if (txn.type === 'transfer') return txn.fromAccountId === accountId || txn.toAccountId === accountId;
+          return false;
+      }).slice(0, 10);
+  };
+
   // Derived Reconcile Values
   let diff = 0;
   let isIncome = false;
@@ -600,7 +706,10 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.05 }}
                 className={`group flex justify-between items-center py-3 border-b border-border/40 last:border-0 cursor-pointer active:bg-white/5 -mx-2 px-2 rounded-lg transition-all ${selectedAccountId === acc.id ? 'bg-primary/5 border-l-2 border-l-primary pl-4' : ''}`}
-                onClick={() => setSelectedAccountId(selectedAccountId === acc.id ? null : acc.id)}
+                onClick={() => {
+                    setDetailAccount(acc);
+                    setDetailAccountType('bank');
+                }}
              >
                  <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-full transition-colors ${selectedAccountId === acc.id ? 'bg-primary text-white' : 'bg-background text-textSecondary'}`}>
@@ -644,7 +753,10 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: (data.bankAccounts.length + idx) * 0.05 }}
                     className={`mb-5 last:mb-0 group cursor-pointer p-2 -mx-2 rounded-xl transition-all ${isSelected ? 'bg-alert/5 border-l-2 border-l-alert pl-4' : ''} ${isLocked ? 'opacity-40' : ''}`}
-                    onClick={() => setSelectedAccountId(isSelected ? null : acc.id)}
+                    onClick={() => {
+                        setDetailAccount(acc);
+                        setDetailAccountType('debt');
+                    }}
                   >
                       <div className="flex justify-between text-sm mb-1.5">
                           <span style={{ color: acc.color }} className="font-bold flex items-center gap-2">
@@ -684,6 +796,9 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
           <div className="flex gap-2">
             <Button variant="ghost" className="h-8 px-2 text-xs" onClick={() => exportData(data, 'file', 'money')}>
               <Download size={14} />
+            </Button>
+            <Button variant="secondary" className="h-8 px-3 text-xs shadow-lg" onClick={() => setShowTransferModal(true)}>
+              <ArrowRightLeft size={14} className="mr-1"/> TRANSFER
             </Button>
             <Button variant="primary" className="h-8 px-3 text-xs shadow-lg shadow-accent/20" onClick={() => setShowExpenseModal(true)}>
               <Plus size={14} className="mr-1"/> EXPENSE
@@ -833,6 +948,172 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       />
 
       {/* MODALS */}
+      <Modal 
+        isOpen={!!detailAccount} 
+        onClose={() => {
+            setDetailAccount(null);
+            setDetailAccountType(null);
+        }} 
+        title="Account Details"
+      >
+        {detailAccount && (
+            <div className="space-y-4">
+                {/* Header Section */}
+                <div className="text-center pb-4 border-b border-border/50">
+                    <h2 className="text-lg font-bold">{detailAccount.name}</h2>
+                    <p className="text-3xl font-mono font-bold mt-2">
+                        {data.userProfile.currency}
+                        {detailAccountType === 'bank' 
+                            ? (detailAccount as BankAccount).balance.toLocaleString() 
+                            : (detailAccount as DebtAccount).currentBalance.toLocaleString()}
+                    </p>
+                    {detailAccountType === 'debt' && (
+                        <div className="mt-3">
+                            <ProgressBar 
+                                value={(detailAccount as DebtAccount).startingBalance - (detailAccount as DebtAccount).currentBalance} 
+                                max={(detailAccount as DebtAccount).startingBalance} 
+                                color={(detailAccount as DebtAccount).color} 
+                                className="h-2 w-full max-w-xs mx-auto" 
+                            />
+                            <p className="text-[10px] text-textSecondary font-mono mt-1">
+                                {(((detailAccount as DebtAccount).startingBalance - (detailAccount as DebtAccount).currentBalance) / (detailAccount as DebtAccount).startingBalance * 100).toFixed(0)}% PAID
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Quick Stats Row */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-card border border-border/50 p-2 rounded-lg">
+                        <p className="text-[10px] text-textSecondary uppercase">Money In</p>
+                        <p className="font-mono font-bold text-primary text-sm">+{getAccountMoneyIn(detailAccount.id)}</p>
+                    </div>
+                    <div className="bg-card border border-border/50 p-2 rounded-lg">
+                        <p className="text-[10px] text-textSecondary uppercase">Money Out</p>
+                        <p className="font-mono font-bold text-textPrimary text-sm">-{getAccountMoneyOut(detailAccount.id)}</p>
+                    </div>
+                    <div className="bg-card border border-border/50 p-2 rounded-lg">
+                        <p className="text-[10px] text-textSecondary uppercase">Net Flow</p>
+                        <p className={`font-mono font-bold text-sm ${getAccountNetFlow(detailAccount.id) >= 0 ? 'text-primary' : 'text-alert'}`}>
+                            {getAccountNetFlow(detailAccount.id) >= 0 ? '+' : ''}{getAccountNetFlow(detailAccount.id)}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Recent Transactions List */}
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-xs font-bold text-textSecondary uppercase tracking-wider">Recent Activity</h3>
+                        <button 
+                            onClick={() => {
+                                setSelectedAccountId(detailAccount.id);
+                                setDetailAccount(null);
+                                setDetailAccountType(null);
+                            }}
+                            className="text-[10px] text-primary font-bold uppercase tracking-widest hover:underline"
+                        >
+                            View All
+                        </button>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1 no-scrollbar">
+                        {getAccountRecentTransactions(detailAccount.id).length > 0 ? (
+                            getAccountRecentTransactions(detailAccount.id).map(txn => (
+                                <div key={txn.id} className="flex justify-between items-center p-2 bg-background/50 rounded-lg border border-border/30">
+                                    <div className="flex items-center gap-2">
+                                        <div className="text-lg w-8 h-8 flex items-center justify-center bg-card rounded">
+                                            {txn.type === 'expense' ? txn.icon : txn.type === 'transfer' ? <ArrowRightLeft size={14}/> : <TrendingUp size={14}/>}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-textPrimary">
+                                                {txn.type === 'expense' ? txn.categoryName : txn.type === 'transfer' ? (txn.fromAccountId === detailAccount.id ? `→ ${txn.toAccountName}` : `← ${txn.fromAccountName}`) : txn.source}
+                                            </p>
+                                            <p className="text-[9px] text-textSecondary">
+                                                {new Date(txn.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className={`font-mono font-bold text-xs ${txn.type === 'income' || (txn.type === 'transfer' && txn.toAccountId === detailAccount.id) ? 'text-primary' : 'text-textPrimary'}`}>
+                                        {txn.type === 'income' || (txn.type === 'transfer' && txn.toAccountId === detailAccount.id) ? '+' : '-'}{txn.amount}
+                                    </span>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-center text-xs text-textMuted py-4">No recent activity</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+      </Modal>
+
+      <Modal 
+        isOpen={showTransferModal} 
+        onClose={() => setShowTransferModal(false)} 
+        title="Log Transfer"
+        footer={<Button fullWidth onClick={handleAddTransfer}>ADD TRANSFER</Button>}
+      >
+          <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                  <Select 
+                    label="From Account"
+                    value={transferFrom}
+                    onChange={(e) => setTransferFrom(e.target.value)}
+                  >
+                      <optgroup label="Bank Accounts">
+                          {data.bankAccounts.map(acc => (
+                              <option key={acc.id} value={acc.id}>{acc.name}</option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="Debt Accounts">
+                          {data.debtAccounts.map(acc => (
+                              <option key={acc.id} value={acc.id}>{acc.name}</option>
+                          ))}
+                      </optgroup>
+                  </Select>
+                  <Select 
+                    label="To Account"
+                    value={transferTo}
+                    onChange={(e) => setTransferTo(e.target.value)}
+                  >
+                      <optgroup label="Bank Accounts">
+                          {data.bankAccounts.map(acc => (
+                              <option key={acc.id} value={acc.id}>{acc.name}</option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="Debt Accounts">
+                          {data.debtAccounts.map(acc => (
+                              <option key={acc.id} value={acc.id}>{acc.name}</option>
+                          ))}
+                      </optgroup>
+                  </Select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                  <Input 
+                    label="Amount"
+                    type="number"
+                    inputMode="decimal"
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                  <Input 
+                    label="Date"
+                    type="date" 
+                    value={transferDate}
+                    onChange={(e) => setTransferDate(e.target.value)}
+                  />
+              </div>
+              
+              <Input 
+                label="Note (Optional)"
+                value={transferNote}
+                onChange={(e) => setTransferNote(e.target.value)}
+                placeholder="e.g. Monthly Savings"
+              />
+          </div>
+      </Modal>
+
       <Modal 
         isOpen={showPaymentModal} 
         onClose={() => setShowPaymentModal(false)} 

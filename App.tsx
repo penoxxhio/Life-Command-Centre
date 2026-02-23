@@ -108,7 +108,7 @@ const App: React.FC = () => {
                     const debtIdx = newDebtAccounts.findIndex(d => d.id === rule.toAccountId);
                     if (debtIdx >= 0) {
                          // Income to debt usually means paying it off
-                         newDebtAccounts[debtIdx] = { ...newDebtAccounts[debtIdx], currentBalance: newDebtAccounts[debtIdx].currentBalance - rule.amount };
+                         newDebtAccounts[debtIdx] = { ...newDebtAccounts[debtIdx], currentBalance: Math.max(0, newDebtAccounts[debtIdx].currentBalance - rule.amount) };
                     }
                 }
 
@@ -126,12 +126,22 @@ const App: React.FC = () => {
                 const srcBankIdx = newBankAccounts.findIndex(b => b.id === rule.sourceAccountId);
                 if (srcBankIdx >= 0) {
                     newBankAccounts[srcBankIdx] = { ...newBankAccounts[srcBankIdx], balance: newBankAccounts[srcBankIdx].balance - rule.amount };
-                } 
+                } else {
+                    const srcDebtIdx = newDebtAccounts.findIndex(d => d.id === rule.sourceAccountId);
+                    if (srcDebtIdx >= 0) {
+                        newDebtAccounts[srcDebtIdx] = { ...newDebtAccounts[srcDebtIdx], currentBalance: newDebtAccounts[srcDebtIdx].currentBalance + rule.amount };
+                    }
+                }
 
                 // Add to Dest
                 const destBankIdx = newBankAccounts.findIndex(b => b.id === rule.toAccountId);
                 if (destBankIdx >= 0) {
                     newBankAccounts[destBankIdx] = { ...newBankAccounts[destBankIdx], balance: newBankAccounts[destBankIdx].balance + rule.amount };
+                } else {
+                    const destDebtIdx = newDebtAccounts.findIndex(d => d.id === rule.toAccountId);
+                    if (destDebtIdx >= 0) {
+                        newDebtAccounts[destDebtIdx] = { ...newDebtAccounts[destDebtIdx], currentBalance: Math.max(0, newDebtAccounts[destDebtIdx].currentBalance - rule.amount) };
+                    }
                 }
             }
 
