@@ -58,6 +58,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
 
   // Payment Form State
   const [selectedCardId, setSelectedCardId] = useState(data.debtAccounts[0]?.id || '');
+  const [paymentSource, setPaymentSource] = useState(data.bankAccounts[0]?.id || '');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -137,6 +138,12 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       }
   }, [showTransferModal, data.bankAccounts]);
 
+  useEffect(() => {
+      if (showPaymentModal && data.bankAccounts.length > 0) {
+          setPaymentSource(data.bankAccounts[0].id);
+      }
+  }, [showPaymentModal, data.bankAccounts]);
+
   const toggleAssetMode = () => {
     updateData({ assetOnlyMode: !data.assetOnlyMode });
   };
@@ -157,24 +164,46 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
   };
 
   const handleLogPayment = () => {
-    if (!paymentAmount) return;
+    if (!paymentAmount || !paymentSource) return;
     const amount = parseFloat(paymentAmount);
     
-    const newPayment = {
+    // Create a Transfer record for the payment
+    const newTransfer: Transfer = {
+        id: Math.random().toString(36).substr(2, 9),
         date: paymentDate,
-        cardId: selectedCardId,
-        amount: amount
+        amount: amount,
+        fromAccountId: paymentSource,
+        toAccountId: selectedCardId,
+        note: 'Debt Payment'
     };
     
-    const updatedAccounts = data.debtAccounts.map(acc => {
+    // Update Bank Account (Source)
+    const updatedBankAccounts = data.bankAccounts.map(acc => {
+        if (acc.id === paymentSource) {
+            return { ...acc, balance: acc.balance - amount };
+        }
+        return acc;
+    });
+
+    // Update Debt Account (Destination)
+    const updatedDebtAccounts = data.debtAccounts.map(acc => {
         if (acc.id === selectedCardId) {
             return { ...acc, currentBalance: Math.max(0, acc.currentBalance - amount) };
         }
         return acc;
     });
 
+    // Legacy: Still log to debtPaymentHistory just in case
+    const newPayment = {
+        date: paymentDate,
+        cardId: selectedCardId,
+        amount: amount
+    };
+
     updateData({
-        debtAccounts: updatedAccounts,
+        bankAccounts: updatedBankAccounts,
+        debtAccounts: updatedDebtAccounts,
+        transfers: [newTransfer, ...data.transfers],
         debtPaymentHistory: [...data.debtPaymentHistory, newPayment]
     });
 
@@ -1122,7 +1151,17 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       >
           <div className="space-y-4">
               <Select 
-                label="Select Card"
+                label="Pay From (Bank Account)"
+                value={paymentSource}
+                onChange={(e) => setPaymentSource(e.target.value)}
+              >
+                  {data.bankAccounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.name} ({data.userProfile.currency}{acc.balance.toLocaleString()})</option>
+                  ))}
+              </Select>
+
+              <Select 
+                label="Pay To (Card)"
                 value={selectedCardId}
                 onChange={(e) => setSelectedCardId(e.target.value)}
               >
