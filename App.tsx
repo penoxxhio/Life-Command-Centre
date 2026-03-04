@@ -11,6 +11,7 @@ import { loadData, saveData } from './services/storageService';
 import { INITIAL_APP_DATA } from './constants';
 import { Command, Sparkles } from 'lucide-react';
 import { initNotificationService } from './services/notificationService';
+import { recordActivity } from './services/streakService';
 import { motion, AnimatePresence } from 'motion/react';
 
 const App: React.FC = () => {
@@ -177,6 +178,12 @@ const App: React.FC = () => {
     setData(prev => {
       const updated = { ...prev, ...newData };
       saveData(updated);
+
+      // Track streak when user logs meaningful data
+      if (newData.meals || newData.expenses || newData.workouts || newData.incomes || newData.transfers) {
+        recordActivity();
+      }
+
       return updated;
     });
   };

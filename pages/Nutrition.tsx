@@ -9,6 +9,7 @@ import { Input } from '../components/ui/Input';
 import { parseMealLog, analyzeFoodImage, refineMealLog, isAiReady } from '../services/geminiService';
 import { Trash2, Sparkles, Camera, RotateCw, Send, Plus, Download, AlertCircle } from 'lucide-react';
 import { exportData } from '../services/storageService';
+import { motion } from 'motion/react';
 
 interface NutritionProps {
   data: AppData;
@@ -138,7 +139,11 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
   };
 
   return (
-    <div className="space-y-6 animate-slide-up">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-6 pb-10"
+    >
       
       {/* 1. Daily Summary */}
       <Card title="MACRO TARGETS" action={
@@ -257,8 +262,8 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
             </div>
           ))}
           {todaysMeals.length === 0 && (
-            <div className="text-center py-8 text-textSecondary text-xs italic">
-              No food logged yet.
+            <div className="text-center py-8 bg-card/30 rounded-xl border border-dashed border-border/50">
+              <p className="text-textSecondary text-xs">No food logged yet today.</p>
             </div>
           )}
         </div>
@@ -316,6 +321,6 @@ export const NutritionPage: React.FC<NutritionProps> = ({ data, updateData }) =>
          )}
       </Modal>
 
-    </div>
+    </motion.div>
   );
 };

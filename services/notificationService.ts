@@ -57,9 +57,9 @@ export const sendNotification = (title: string, body: string) => {
 
 const CHECK_INTERVAL = 60 * 1000; // Check every minute
 const REMINDER_TIMES = [
-    { hour: 9, id: 'morning' }, 
-    { hour: 13, id: 'midday' }, 
-    { hour: 20, id: 'evening' }
+    { hour: 9, id: 'morning', title: 'Good Morning', body: 'Start strong — log breakfast and check your budget.' },
+    { hour: 13, id: 'midday', title: 'Midday Check-in', body: 'Quick update: log lunch and any spending so far.' },
+    { hour: 20, id: 'evening', title: 'Evening Wrap-up', body: 'Finish the day — log dinner, workouts, and any last expenses.' }
 ];
 
 let _initialized = false;
@@ -82,7 +82,7 @@ export const initNotificationService = () => {
             if (target && min < 5) { // 5 minute window
                 const key = `notified_log_${todayStr}_${target.id}`;
                 if (!localStorage.getItem(key)) {
-                    sendNotification("Time to Log", "Update your meals, workouts, or spend for the day.");
+                    sendNotification(target.title, target.body);
                     localStorage.setItem(key, 'true');
                 }
             }
@@ -91,7 +91,7 @@ export const initNotificationService = () => {
             if (day === 0 && hour === 10 && min < 5) {
                 const key = `notified_sunday_sync_${todayStr}`;
                 if (!localStorage.getItem(key)) {
-                    sendNotification("Weekly Sync", "Don't forget to re-upload your health data from Apple Health / Whoop.");
+                    sendNotification("Weekly Health Sync", "Upload your latest Apple Health / Whoop data to keep your dashboard current.");
                     localStorage.setItem(key, 'true');
                 }
             }
@@ -114,7 +114,7 @@ export const initNotificationService = () => {
                     }
 
                     if (shouldNotify) {
-                        sendNotification("Safety First", "It's been a few days. Time to export a backup of your Life Command data.");
+                        sendNotification("Backup Reminder", "Export a backup of your data — it only takes a few seconds.");
                         localStorage.setItem('last_backup_notified_date', todayStr);
                     }
                 }
