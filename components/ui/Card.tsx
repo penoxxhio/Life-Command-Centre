@@ -11,7 +11,7 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({ children, className = '', onClick, title, action }) => {
   return (
     <div 
-      className={`bg-card border border-border rounded-md p-4 mb-4 shadow-sm ${onClick ? 'cursor-pointer active:opacity-90 transition-opacity' : ''} ${className}`}
+      className={`bg-card border border-border rounded-xl p-4 mb-4 shadow-sm ${onClick ? 'cursor-pointer active:opacity-90 transition-opacity' : ''} ${className}`}
       onClick={onClick}
     >
       {(title || action) && (

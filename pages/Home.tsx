@@ -4,8 +4,9 @@ import { AppData, Tab } from '../types';
 import { Card } from '../components/ui/Card';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { ArrowRight, Flame, Moon, Target, Footprints, Sparkles, TrendingUp, Zap, Brain, Trophy, Calendar, Clock } from 'lucide-react';
+import { ArrowRight, Flame, Moon, Target, Footprints, Zap, CheckCircle2, Circle } from 'lucide-react';
 import { getLatestSleep, getHealthDay, getHealthImport } from '../services/healthImportService';
+import { getStreakData, isActiveToday } from '../services/streakService';
 import { motion } from 'motion/react';
 
 interface HomeProps {
@@ -86,7 +87,13 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
   const todaysCarbs = todaysMeals.reduce((sum, m) => sum + m.carbs, 0);
   const todaysFats = todaysMeals.reduce((sum, m) => sum + m.fats, 0);
 
-  // 4. Budget Logic
+  // 4. Streak & Today Checklist
+  const streak = getStreakData();
+  const loggedMealToday = todaysMeals.length > 0;
+  const loggedExpenseToday = data.expenses.some(e => e.date === todayStr);
+  const loggedWorkoutToday = data.workouts.some(w => w.date === todayStr && w.completed);
+
+  // 5. Budget Logic
   const payday = data.budgetConfig.cycleStartDay;
   let cycleStart = new Date(today.getFullYear(), today.getMonth(), payday);
   if (today.getDate() < payday) {
@@ -317,23 +324,43 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
         </Card>
       </motion.div>
 
-      {/* System Status */}
-      <motion.div 
-        variants={item}
-        className="flex items-center justify-center gap-4 py-4 opacity-40 grayscale hover:grayscale-0 hover:opacity-100 transition-all"
-      >
-        <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
-          <Calendar size={12} />
-          <span>SYNCED</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
-          <Clock size={12} />
-          <span>REAL-TIME</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
-          <Trophy size={12} />
-          <span>ACTIVE</span>
-        </div>
+      {/* Daily Streak & Checklist */}
+      <motion.div variants={item}>
+        <Card className="bg-card/50 border-border/50">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${streak.currentStreak > 0 ? 'bg-accent/20 text-accent' : 'bg-border text-textSecondary'}`}>
+                <Zap size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-textPrimary">
+                  {streak.currentStreak > 0 ? `${streak.currentStreak} Day Streak` : 'Start Your Streak'}
+                </p>
+                <p className="text-[10px] text-textSecondary font-mono">
+                  {streak.longestStreak > 0 ? `BEST: ${streak.longestStreak} DAYS` : 'LOG SOMETHING TO BEGIN'}
+                </p>
+              </div>
+            </div>
+            {streak.currentStreak > 0 && (
+              <div className="text-2xl font-mono font-bold text-accent">{streak.currentStreak}</div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5">
+              {loggedMealToday ? <CheckCircle2 size={14} className="text-primary" /> : <Circle size={14} className="text-border" />}
+              <span className={`text-xs ${loggedMealToday ? 'text-textPrimary' : 'text-textSecondary'}`}>Log a meal</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              {loggedExpenseToday ? <CheckCircle2 size={14} className="text-primary" /> : <Circle size={14} className="text-border" />}
+              <span className={`text-xs ${loggedExpenseToday ? 'text-textPrimary' : 'text-textSecondary'}`}>Track spending</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              {loggedWorkoutToday ? <CheckCircle2 size={14} className="text-primary" /> : <Circle size={14} className="text-border" />}
+              <span className={`text-xs ${loggedWorkoutToday ? 'text-textPrimary' : 'text-textSecondary'}`}>Log a workout</span>
+            </div>
+          </div>
+        </Card>
       </motion.div>
 
     </motion.div>

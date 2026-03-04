@@ -12,6 +12,7 @@ import { parseWorkoutLog, isAiReady } from '../services/geminiService';
 import { exportData } from '../services/storageService';
 import { getHealthImport, getHealthDay } from '../services/healthImportService';
 import { ProgressBar } from '../components/ui/ProgressBar';
+import { motion } from 'motion/react';
 
 interface FitnessProps {
   data: AppData;
@@ -311,7 +312,12 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
   // ---
 
   return (
-    <div className="space-y-6 animate-slide-up pb-10">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ staggerChildren: 0.08 }}
+      className="space-y-6 pb-10"
+    >
       
       {/* HEALTH IMPORT SECTION */}
       {hasHealthData ? (
@@ -487,6 +493,6 @@ export const FitnessPage: React.FC<FitnessProps> = ({ data, updateData }) => {
           </div>
       </Modal>
 
-    </div>
+    </motion.div>
   );
 };

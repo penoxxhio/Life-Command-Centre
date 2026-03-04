@@ -193,18 +193,10 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
         return acc;
     });
 
-    // Legacy: Still log to debtPaymentHistory just in case
-    const newPayment = {
-        date: paymentDate,
-        cardId: selectedCardId,
-        amount: amount
-    };
-
     updateData({
         bankAccounts: updatedBankAccounts,
         debtAccounts: updatedDebtAccounts,
-        transfers: [newTransfer, ...data.transfers],
-        debtPaymentHistory: [...data.debtPaymentHistory, newPayment]
+        transfers: [newTransfer, ...data.transfers]
     });
 
     setShowPaymentModal(false);
@@ -450,8 +442,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
 
   const updateSplit = (index: number, field: keyof Split, value: string) => {
       const newSplits = [...reconcileSplits];
-      // @ts-ignore
-      newSplits[index] = { ...newSplits[index], [field]: value };
+      newSplits[index] = { ...newSplits[index], [field]: value } as Split;
       
       // Reset counterParty if category changes from Transfer
       if (field === 'category' && value !== 'Transfer') {
@@ -551,13 +542,11 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
       });
 
       // Update All Data
-      updateData({ 
+      updateData({
           bankAccounts: updatedBankAccounts,
           debtAccounts: updatedDebtAccounts,
           expenses: [...newExpenses, ...data.expenses],
-          // @ts-ignore
           incomes: [...newIncomes, ...data.incomes],
-          // @ts-ignore
           transfers: [...newTransfers, ...data.transfers]
       });
 
@@ -678,7 +667,11 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
   const totalPulled = Object.values(rebalanceMap).reduce((sum: number, val: number) => sum + val, 0);
 
   return (
-    <div className="space-y-6 animate-slide-up">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-6"
+    >
       
       {/* Net Worth */}
       <div className="grid grid-cols-2 gap-4">
@@ -954,9 +947,9 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
               </AnimatePresence>
               
               {Object.keys(groupedTransactions).length === 0 && (
-                  <div className="text-center py-12 bg-card/30 rounded-3xl border border-dashed border-border/50">
-                      <Filter size={32} className="mx-auto text-textMuted mb-3 opacity-20" />
-                      <p className="text-sm text-textSecondary">No transactions found for this filter.</p>
+                  <div className="text-center py-8 bg-card/30 rounded-xl border border-dashed border-border/50">
+                      <Filter size={24} className="mx-auto text-textMuted mb-3 opacity-20" />
+                      <p className="text-xs text-textSecondary">No transactions found for this filter.</p>
                       <button 
                         onClick={() => setSelectedAccountId(null)}
                         className="mt-4 text-xs text-primary font-bold uppercase tracking-widest"
@@ -1482,6 +1475,6 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
           </div>
       </Modal>
 
-    </div>
+    </motion.div>
   );
 };
