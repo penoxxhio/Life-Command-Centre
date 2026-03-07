@@ -25,11 +25,11 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
   const totalDebtStart = data.debtGoal.startingTotal;
   const currentTotalDebt = data.debtAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
   const debtPaid = Math.max(0, totalDebtStart - currentTotalDebt);
-  const debtProgress = Math.min(100, (debtPaid / totalDebtStart) * 100);
+  const debtProgress = totalDebtStart > 0 ? Math.min(100, (debtPaid / totalDebtStart) * 100) : 0;
   
   const today = new Date();
   const targetDate = new Date(data.debtGoal.targetDate);
-  const diffTime = Math.abs(targetDate.getTime() - today.getTime());
+  const diffTime = targetDate.getTime() - today.getTime();
   const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   // 2. Auto-Tracked Logic
@@ -146,7 +146,7 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h2 className="text-accent font-bold text-lg mb-1 tracking-tight">Debt and Credit Cards</h2>
-              <p className="text-textSecondary text-xs font-medium">{daysRemaining} days remaining</p>
+              <p className="text-textSecondary text-xs font-medium">{daysRemaining > 0 ? `${daysRemaining} days remaining` : daysRemaining === 0 ? 'Target date is today!' : `${Math.abs(daysRemaining)} days overdue`}</p>
             </div>
             <div className="w-16 h-16 relative">
                <ResponsiveContainer width="100%" height="100%">
@@ -274,7 +274,7 @@ export const HomePage: React.FC<HomeProps> = ({ data, onNavigate }) => {
            <div className="relative h-3 bg-border rounded-full overflow-hidden mb-6">
               <motion.div 
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.min(100, (todaysCalories / calorieGoal) * 100)}%` }}
+                animate={{ width: `${calorieGoal > 0 ? Math.min(100, (todaysCalories / calorieGoal) * 100) : 0}%` }}
                 className="absolute top-0 left-0 h-full bg-ai"
               />
            </div>

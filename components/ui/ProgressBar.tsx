@@ -15,7 +15,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   className = '',
   segmented = false
 }) => {
-  const percentage = Math.min(100, Math.max(0, (value / max) * 100));
+  const percentage = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
   
   return (
     <div className={`h-2 bg-border rounded-full overflow-hidden w-full ${className} relative`}>

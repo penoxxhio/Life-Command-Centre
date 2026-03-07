@@ -156,6 +156,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
   };
 
   const getCategoryColor = (spent: number, budget: number) => {
+      if (budget <= 0) return '#5CB870';
       const pct = (spent / budget) * 100;
       if (pct < 50) return '#5CB870';
       if (pct < 80) return '#D29922';
@@ -801,7 +802,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                       </div>
                       <ProgressBar value={paidOff} max={acc.startingBalance} color={acc.color} className="h-2" />
                       <div className="flex justify-between mt-1 text-[10px] text-textSecondary font-mono">
-                          <span>{((paidOff / acc.startingBalance) * 100).toFixed(0)}% PAID</span>
+                          <span>{acc.startingBalance > 0 ? ((paidOff / acc.startingBalance) * 100).toFixed(0) : 0}% PAID</span>
                           <span>LIMIT: {acc.startingBalance.toLocaleString()}</span>
                       </div>
                   </motion.div>
@@ -998,7 +999,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                                 className="h-2 w-full max-w-xs mx-auto" 
                             />
                             <p className="text-[10px] text-textSecondary font-mono mt-1">
-                                {(((detailAccount as DebtAccount).startingBalance - (detailAccount as DebtAccount).currentBalance) / (detailAccount as DebtAccount).startingBalance * 100).toFixed(0)}% PAID
+                                {(detailAccount as DebtAccount).startingBalance > 0 ? (((detailAccount as DebtAccount).startingBalance - (detailAccount as DebtAccount).currentBalance) / (detailAccount as DebtAccount).startingBalance * 100).toFixed(0) : 0}% PAID
                             </p>
                         </div>
                     )}
@@ -1273,7 +1274,7 @@ export const MoneyPage: React.FC<MoneyProps> = ({ data, updateData }) => {
                     disabled={totalPulled < rebalanceDeficit}
                     className="shadow-lg shadow-accent/20"
                 >
-                    CONFIRM REBALANCE ({Math.min(100, (totalPulled/rebalanceDeficit)*100).toFixed(0)}%)
+                    CONFIRM REBALANCE ({rebalanceDeficit > 0 ? Math.min(100, (totalPulled/rebalanceDeficit)*100).toFixed(0) : 0}%)
                 </Button>
                 <div className="flex gap-2">
                     <Button variant="danger" fullWidth onClick={handleRebalanceSkip} className="bg-transparent border border-alert text-alert hover:bg-alert hover:text-white">
