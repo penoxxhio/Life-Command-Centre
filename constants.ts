@@ -1,7 +1,26 @@
 
-import { AppData, BudgetConfig, DebtAccount, DebtGoal, DebtPayment, FitnessGoals, UserProfile, WhoopData } from './types';
+import { AppData, BudgetConfig, DebtAccount, DebtGoal, DebtPayment, FitnessGoals, GardenData, UserProfile, WhoopData } from './types';
 
 export const APP_DATA_KEY = 'life-command-center-data-v1';
+
+export const INITIAL_GARDEN_DATA: GardenData = {
+  plots: [
+    { id: 'p1', plant: null, unlocked: true },
+    { id: 'p2', plant: null, unlocked: true },
+    { id: 'p3', plant: null, unlocked: true },
+    { id: 'p4', plant: null, unlocked: true },
+    { id: 'p5', plant: null, unlocked: false },
+    { id: 'p6', plant: null, unlocked: false },
+    { id: 'p7', plant: null, unlocked: false },
+    { id: 'p8', plant: null, unlocked: false },
+    { id: 'p9', plant: null, unlocked: false },
+  ],
+  totalPlantsGrown: 0,
+  totalPlantsDied: 0,
+  gardenLevel: 1,
+  lifetimeXP: 0,
+  lastProcessedDate: new Date().toISOString().split('T')[0],
+};
 
 export const INITIAL_USER_PROFILE: UserProfile = {
   name: "",
@@ -148,6 +167,7 @@ export const INITIAL_APP_DATA: AppData = {
   workouts: [],
   meals: [],
   nutritionQuickChips: DEFAULT_QUICK_CHIPS,
+  gardenData: INITIAL_GARDEN_DATA,
   initialized: false,
   assetOnlyMode: false
 };

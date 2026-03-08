@@ -178,6 +178,7 @@ export interface AppData {
   workouts: Workout[];
   meals: Meal[];
   nutritionQuickChips: string[];
+  gardenData: GardenData;
   initialized: boolean;
   assetOnlyMode: boolean;
 }
@@ -185,6 +186,7 @@ export interface AppData {
 export enum Tab {
   HOME = 'HOME',
   MONEY = 'MONEY',
+  GARDEN = 'GARDEN',
   FITNESS = 'FITNESS',
   NUTRITION = 'NUTRITION',
   SETTINGS = 'SETTINGS'
@@ -222,3 +224,35 @@ export interface HealthDayData {
     strain: number | null;
   }> | null;
 }
+
+// Garden Gamification Types
+export interface GardenPlot {
+  id: string;
+  plant: GardenPlant | null;
+  unlocked: boolean;
+}
+
+export interface GardenPlant {
+  id: string;
+  type: PlantType;
+  name: string;
+  plantedDate: string;
+  lastCaredDate: string;
+  health: number; // 0-100
+  experience: number; // drives growth stage
+  stage: PlantStage;
+  isDead: boolean;
+}
+
+export type PlantType = 'sunflower' | 'rose' | 'cactus' | 'herb' | 'tree' | 'tulip' | 'cherry' | 'palm';
+export type PlantStage = 'seed' | 'sprout' | 'growing' | 'blooming' | 'mature';
+
+export interface GardenData {
+  plots: GardenPlot[];
+  totalPlantsGrown: number;
+  totalPlantsDied: number;
+  gardenLevel: number;
+  lifetimeXP: number;
+  lastProcessedDate: string;
+}
+

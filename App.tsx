@@ -6,12 +6,14 @@ import { MoneyPage } from './pages/Money';
 import { FitnessPage } from './pages/Fitness';
 import { NutritionPage } from './pages/Nutrition';
 import { SettingsPage } from './pages/Settings';
+import { GardenPage } from './pages/Garden';
 import { AppData, Tab } from './types';
 import { loadData, saveData } from './services/storageService';
 import { INITIAL_APP_DATA } from './constants';
 import { Command, Sparkles } from 'lucide-react';
 import { initNotificationService } from './services/notificationService';
 import { recordActivity } from './services/streakService';
+import { processGardenAction, processGardenDailyDecay } from './services/gardenService';
 import { motion, AnimatePresence } from 'motion/react';
 
 const App: React.FC = () => {
@@ -26,6 +28,13 @@ const App: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 600));
       
       const stored = loadData();
+      // Ensure gardenData exists (migration for existing users)
+      if (!stored.gardenData) {
+        const { INITIAL_GARDEN_DATA } = await import('./constants');
+        stored.gardenData = INITIAL_GARDEN_DATA;
+      }
+      // Process daily garden decay
+      stored.gardenData = processGardenDailyDecay(stored.gardenData);
       const processed = processRecurringTransactions(stored);
       setData(processed);
       if (processed !== stored) {
@@ -176,7 +185,38 @@ const App: React.FC = () => {
   // Update data wrapper
   const updateData = (newData: Partial<AppData>) => {
     setData(prev => {
-      const updated = { ...prev, ...newData };
+      let updated = { ...prev, ...newData };
+      
+      // Garden growth: reward plants when user logs meaningful actions
+      if (updated.gardenData) {
+        if (newData.expenses && newData.expenses.length > prev.expenses.length) {
+          updated.gardenData = processGardenAction(updated.gardenData, 'expense');
+        }
+        if (newData.incomes && newData.incomes.length > prev.incomes.length) {
+          updated.gardenData = processGardenAction(updated.gardenData, 'income');
+        }
+        if (newData.meals && newData.meals.length > prev.meals.length) {
+          updated.gardenData = processGardenAction(updated.gardenData, 'meal');
+        }
+        if (newData.workouts && newData.workouts.length > prev.workouts.length) {
+          updated.gardenData = processGardenAction(updated.gardenData, 'workout');
+        }
+        if (newData.transfers && newData.transfers.length > prev.transfers.length) {
+          const latestTransfer = newData.transfers[0];
+          if (latestTransfer?.note?.includes('Debt Payment') || latestTransfer?.note?.includes('Payment')) {
+            updated.gardenData = processGardenAction(updated.gardenData, 'payment');
+          }
+        }
+        // Also reward if debt accounts changed (direct balance reconciliation payments)
+        if (newData.debtAccounts) {
+          const prevDebt = prev.debtAccounts.reduce((s, a) => s + a.currentBalance, 0);
+          const newDebt = newData.debtAccounts.reduce((s, a) => s + a.currentBalance, 0);
+          if (newDebt < prevDebt && !newData.transfers) {
+            updated.gardenData = processGardenAction(updated.gardenData, 'payment');
+          }
+        }
+      }
+
       saveData(updated);
 
       // Track streak when user logs meaningful data
@@ -268,6 +308,9 @@ const App: React.FC = () => {
       )}
       {activeTab === Tab.MONEY && (
         <MoneyPage data={data} updateData={updateData} />
+      )}
+      {activeTab === Tab.GARDEN && (
+        <GardenPage data={data} updateData={updateData} />
       )}
       {activeTab === Tab.FITNESS && (
         <FitnessPage data={data} updateData={updateData} />

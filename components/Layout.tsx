@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Home, Banknote, Activity, Utensils, Settings, Sparkles, AlertTriangle } from 'lucide-react';
+import { Home, Banknote, Activity, Utensils, Settings, Sparkles, AlertTriangle, Sprout } from 'lucide-react';
 import { Tab, UserProfile } from '../types';
 import { getAiUsage, UsageStats, isAiReady } from '../services/geminiService';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,6 +29,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
   const tabs = [
     { id: Tab.HOME, label: 'Home', icon: Home },
     { id: Tab.MONEY, label: 'Money', icon: Banknote },
+    { id: Tab.GARDEN, label: 'Garden', icon: Sprout },
     { id: Tab.FITNESS, label: 'Fitness', icon: Activity },
     { id: Tab.NUTRITION, label: 'Food', icon: Utensils },
   ];
