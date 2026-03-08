@@ -9,7 +9,7 @@ import { SettingsPage } from './pages/Settings';
 import { GardenPage } from './pages/Garden';
 import { AppData, Tab } from './types';
 import { loadData, saveData } from './services/storageService';
-import { INITIAL_APP_DATA } from './constants';
+import { INITIAL_APP_DATA, INITIAL_GARDEN_DATA } from './constants';
 import { Command, Sparkles } from 'lucide-react';
 import { initNotificationService } from './services/notificationService';
 import { recordActivity } from './services/streakService';
@@ -30,7 +30,6 @@ const App: React.FC = () => {
       const stored = loadData();
       // Ensure gardenData exists (migration for existing users)
       if (!stored.gardenData) {
-        const { INITIAL_GARDEN_DATA } = await import('./constants');
         stored.gardenData = INITIAL_GARDEN_DATA;
       }
       // Process daily garden decay
