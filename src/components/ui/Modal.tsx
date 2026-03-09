@@ -41,7 +41,6 @@ export const Modal: React.FC<ModalProps> = ({
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -50,8 +49,6 @@ export const Modal: React.FC<ModalProps> = ({
             className="absolute inset-0 bg-earth-900/40 backdrop-blur-sm"
             onClick={onClose}
           />
-
-          {/* Modal panel */}
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -64,7 +61,6 @@ export const Modal: React.FC<ModalProps> = ({
               max-h-[85dvh] flex flex-col
             `}
           >
-            {/* Header */}
             {title && (
               <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-cream-200">
                 <div>
@@ -79,11 +75,7 @@ export const Modal: React.FC<ModalProps> = ({
                 </button>
               </div>
             )}
-
-            {/* Body */}
             <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
-
-            {/* Footer */}
             {footer && (
               <div className="px-5 py-4 border-t border-cream-200 bg-cream-50/50">{footer}</div>
             )}
