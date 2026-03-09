@@ -16,18 +16,12 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary:
-    'bg-sage-500 text-white hover:bg-sage-600 active:bg-sage-700 shadow-garden hover:shadow-garden-md',
-  secondary:
-    'bg-cream-100 text-earth-800 border border-cream-300 hover:bg-cream-200 active:bg-cream-300',
-  danger:
-    'bg-rose-500 text-white hover:bg-rose-600 active:bg-rose-700 shadow-warm',
-  ghost:
-    'bg-transparent text-earth-600 hover:bg-cream-100 active:bg-cream-200',
-  warm:
-    'bg-terracotta-500 text-white hover:bg-terracotta-600 active:bg-terracotta-700 shadow-warm hover:shadow-warm-md',
-  amber:
-    'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 shadow-sunlight',
+  primary: 'bg-sage-500 text-white hover:bg-sage-600 active:bg-sage-700 shadow-garden hover:shadow-garden-md',
+  secondary: 'bg-cream-100 text-earth-800 border border-cream-300 hover:bg-cream-200 active:bg-cream-300',
+  danger: 'bg-rose-500 text-white hover:bg-rose-600 active:bg-rose-700 shadow-warm',
+  ghost: 'bg-transparent text-earth-600 hover:bg-cream-100 active:bg-cream-200',
+  warm: 'bg-terracotta-500 text-white hover:bg-terracotta-600 active:bg-terracotta-700 shadow-warm hover:shadow-warm-md',
+  amber: 'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 shadow-sunlight',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -48,7 +42,6 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   ...props
 }) => {
-  // Destructure out React drag handlers that conflict with framer-motion's onDrag types
   const { onDrag, onDragStart, onDragEnd, ...safeProps } = props;
 
   return (
