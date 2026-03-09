@@ -23,12 +23,12 @@ const ACCOUNT_COLORS: Record<string, string> = {
 };
 
 export const AccountsList: React.FC = () => {
-  const { money, setMoney } = useAppStore();
+  const { data, updateMoney } = useAppStore();
+  const money = data.money;
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState('bank');
   const [newBalance, setNewBalance] = useState('');
-
   const accounts = money.accounts ?? [];
   const currency = money.currency ?? 'AED';
 
@@ -41,7 +41,7 @@ export const AccountsList: React.FC = () => {
       balance: parseFloat(newBalance) || 0,
       currency,
     };
-    setMoney({ accounts: [...accounts, account] });
+    updateMoney({ accounts: [...accounts, account] });
     setNewName('');
     setNewBalance('');
     setShowAdd(false);
@@ -51,11 +51,8 @@ export const AccountsList: React.FC = () => {
     <>
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-display font-bold text-earth-900">Accounts</h3>
-        <Button variant="ghost" size="sm" onClick={() => setShowAdd(true)} icon={<Plus className="w-4 h-4" />}>
-          Add
-        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setShowAdd(true)} icon={<Plus className="w-4 h-4" />}>Add</Button>
       </div>
-
       {accounts.length === 0 ? (
         <Card className="p-6 text-center">
           <PiggyBank className="w-10 h-10 text-earth-300 mx-auto mb-2" />
@@ -63,7 +60,7 @@ export const AccountsList: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-2">
-          {accounts.map((account) => (
+          {accounts.map((account: any) => (
             <motion.div key={account.id} layout>
               <Card className="p-4">
                 <div className="flex items-center gap-3">
@@ -74,16 +71,13 @@ export const AccountsList: React.FC = () => {
                     <p className="font-medium text-earth-900">{account.name}</p>
                     <p className="text-xs text-earth-500 capitalize">{account.type}</p>
                   </div>
-                  <p className="font-display font-bold text-earth-900">
-                    {currency} {(account.balance ?? 0).toLocaleString()}
-                  </p>
+                  <p className="font-display font-bold text-earth-900">{currency} {(account.balance ?? 0).toLocaleString()}</p>
                 </div>
               </Card>
             </motion.div>
           ))}
         </div>
       )}
-
       <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Account">
         <div className="space-y-4">
           <Input label="Account Name" placeholder="e.g. ADCB Current" value={newName} onChange={(e) => setNewName(e.target.value)} />
@@ -91,15 +85,8 @@ export const AccountsList: React.FC = () => {
             <label className="block text-sm font-medium text-earth-700 mb-1.5">Type</label>
             <div className="flex gap-2">
               {Object.keys(ACCOUNT_ICONS).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setNewType(type)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-garden text-sm capitalize transition-all ${
-                    newType === type ? 'bg-sage-500 text-white' : 'bg-cream-100 text-earth-600'
-                  }`}
-                >
-                  {ACCOUNT_ICONS[type]}
-                  {type}
+                <button key={type} onClick={() => setNewType(type)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-garden text-sm capitalize transition-all ${newType === type ? 'bg-sage-500 text-white' : 'bg-cream-100 text-earth-600'}`}>
+                  {ACCOUNT_ICONS[type]}{type}
                 </button>
               ))}
             </div>
