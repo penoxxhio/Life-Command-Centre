@@ -1,9 +1,0 @@
-{
-  "name": "Life Command v2",
-  "description": "Advanced AI-powered personal dashboard for finance, fitness, and nutrition tracking with real-time insights.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone",
-    "geolocation"
-  ]
-}
