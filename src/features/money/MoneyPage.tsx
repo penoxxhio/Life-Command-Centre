@@ -1,73 +1,82 @@
-import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, ArrowDownUp } from 'lucide-react';
+import { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { AccountsList } from './components/AccountsList';
-import { ExpenseLogger } from './components/ExpenseLogger';
 import { BudgetOverview } from './components/BudgetOverview';
+import { ExpenseLogger } from './components/ExpenseLogger';
 import { TransactionHistory } from './components/TransactionHistory';
 import { DebtTracker } from './components/DebtTracker';
-import { RecurringManager } from './components/RecurringManager';
 
-type MoneyTab = 'overview' | 'transactions' | 'debts' | 'recurring';
+type MoneyTab = 'overview' | 'expenses' | 'transactions' | 'debt';
 
-export const MoneyPage: React.FC = () => {
-  const { data } = useAppStore();
+export function MoneyPage() {
+  const { data, updateMoney } = useAppStore();
   const money = data.money;
   const [activeTab, setActiveTab] = useState<MoneyTab>('overview');
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const currency = money.currency ?? 'AED';
-  const totalBalance = useMemo(() => {
-    return (money.accounts ?? []).reduce((sum: number, a: any) => sum + (a.balance ?? 0), 0);
-  }, [money.accounts]);
-  const monthlySpent = money.monthlySpent ?? 0;
-  const monthlyIncome = money.monthlyIncome ?? 0;
-  const remaining = monthlyIncome - monthlySpent;
-  const tabs: { key: MoneyTab; label: string }[] = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'transactions', label: 'History' },
-    { key: 'debts', label: 'Debts' },
-    { key: 'recurring', label: 'Recurring' },
+
+  const tabs: { id: MoneyTab; label: string; icon: string }[] = [
+    { id: 'overview', label: 'Overview', icon: '\ud83d\udcca' },
+    { id: 'expenses', label: 'Log', icon: '\ud83d\udcb8' },
+    { id: 'transactions', label: 'History', icon: '\ud83d\udccb' },
+    { id: 'debt', label: 'Debt', icon: '\ud83c\udfe6' },
   ];
-  const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-  const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-5 pb-6">
-      <motion.div variants={item} className="grid grid-cols-3 gap-3">
-        <Card className="p-3 text-center">
-          <p className="text-xs text-earth-500 mb-0.5">Balance</p>
-          <p className="text-lg font-display font-bold text-earth-900">{currency} {totalBalance.toLocaleString()}</p>
-        </Card>
-        <Card className="p-3 text-center">
-          <p className="text-xs text-earth-500 mb-0.5">Spent</p>
-          <p className="text-lg font-display font-bold text-terracotta-600">{currency} {monthlySpent.toLocaleString()}</p>
-        </Card>
-        <Card className="p-3 text-center">
-          <p className="text-xs text-earth-500 mb-0.5">Left</p>
-          <p className={`text-lg font-display font-bold ${remaining >= 0 ? 'text-sage-600' : 'text-rose-600'}`}>{currency} {remaining.toLocaleString()}</p>
-        </Card>
-      </motion.div>
-      <motion.div variants={item} className="flex gap-1 bg-cream-100 p-1 rounded-garden-lg">
+    <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
         {tabs.map((tab) => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex-1 py-2 text-sm font-medium rounded-garden transition-all ${activeTab === tab.key ? 'bg-white text-earth-900 shadow-garden' : 'text-earth-500 hover:text-earth-700'}`}>{tab.label}</button>
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-garden text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === tab.id
+                ? 'bg-earth text-cream'
+                : 'bg-cream text-earth/60 hover:text-earth'
+            }`}
+          >
+            <span>{tab.icon}</span>
+            {tab.label}
+          </button>
         ))}
-      </motion.div>
-      <motion.div variants={item}>
-        {activeTab === 'overview' && <div className="space-y-5"><AccountsList /><BudgetOverview /></div>}
-        {activeTab === 'transactions' && <TransactionHistory />}
-        {activeTab === 'debts' && <DebtTracker />}
-        {activeTab === 'recurring' && <RecurringManager />}
-      </motion.div>
-      <motion.div className="fixed bottom-24 right-5 z-30" whileTap={{ scale: 0.9 }}>
-        <Button variant="warm" size="lg" onClick={() => setShowExpenseModal(true)} className="rounded-full w-14 h-14 p-0 shadow-warm-lg"><Plus className="w-6 h-6" /></Button>
-      </motion.div>
-      <Modal isOpen={showExpenseModal} onClose={() => setShowExpenseModal(false)} title="Log Expense">
-        <ExpenseLogger onClose={() => setShowExpenseModal(false)} />
-      </Modal>
-    </motion.div>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          <AccountsList accounts={money.accounts} currency={money.currency} />
+          <BudgetOverview money={money} />
+        </div>
+      )}
+
+      {activeTab === 'expenses' && (
+        <ExpenseLogger
+          onAddExpense={(expense) => {
+            updateMoney({
+              ...money,
+              expenses: [...money.expenses, expense],
+            });
+          }}
+          categories={money.budgetConfig?.categories ?? money.budgetConfig?.livingCategories ?? []}
+          currency={money.currency}
+        />
+      )}
+
+      {activeTab === 'transactions' && (
+        <TransactionHistory
+          transactions={money.transactions}
+          currency={money.currency}
+        />
+      )}
+
+      {activeTab === 'debt' && (
+        <DebtTracker
+          debts={money.debtAccounts?.length ? money.debtAccounts : money.debts}
+          currency={money.currency}
+          onUpdateDebts={(debts) => {
+            updateMoney({ ...money, debtAccounts: debts, debts });
+          }}
+        />
+      )}
+    </div>
   );
-};
+}
