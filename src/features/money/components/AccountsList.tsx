@@ -71,28 +71,27 @@ export const AccountsList: React.FC = () => {
                     <p className="font-medium text-earth-900">{account.name}</p>
                     <p className="text-xs text-earth-500 capitalize">{account.type}</p>
                   </div>
-                  <p className="font-display font-bold text-earth-900">{currency} {(account.balance ?? 0).toLocaleString()}</p>
+                  <p className="font-display font-bold text-earth-900">{currency} {account.balance?.toLocaleString()}</p>
                 </div>
               </Card>
             </motion.div>
           ))}
         </div>
       )}
-      <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Account">
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Account">
         <div className="space-y-4">
-          <Input label="Account Name" placeholder="e.g. ADCB Current" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <Input label="Account Name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Main Checking" />
           <div>
-            <label className="block text-sm font-medium text-earth-700 mb-1.5">Type</label>
-            <div className="flex gap-2">
-              {Object.keys(ACCOUNT_ICONS).map((type) => (
-                <button key={type} onClick={() => setNewType(type)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-garden text-sm capitalize transition-all ${newType === type ? 'bg-sage-500 text-white' : 'bg-cream-100 text-earth-600'}`}>
-                  {ACCOUNT_ICONS[type]}{type}
-                </button>
-              ))}
-            </div>
+            <label className="block text-sm font-medium text-earth-700 mb-1">Type</label>
+            <select className="w-full p-2 rounded-xl border border-earth-200 bg-white" value={newType} onChange={(e) => setNewType(e.target.value as Account['type'])}>
+              <option value="bank">Bank Account</option>
+              <option value="card">Credit Card</option>
+              <option value="ewallet">E-Wallet</option>
+              <option value="savings">Savings</option>
+            </select>
           </div>
-          <Input label="Current Balance" type="number" placeholder="0" value={newBalance} onChange={(e) => setNewBalance(e.target.value)} />
-          <Button variant="primary" fullWidth onClick={handleAdd}>Add Account</Button>
+          <Input label="Balance" type="number" value={newBalance} onChange={(e) => setNewBalance(e.target.value)} placeholder="0" />
+          <Button onClick={handleAdd} fullWidth>Add Account</Button>
         </div>
       </Modal>
     </>
