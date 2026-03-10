@@ -1,90 +1,121 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, Target, Trash2 } from 'lucide-react';
-import { useAppStore } from '@/store/useAppStore';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
-import { ProgressBar } from '@/components/ui/ProgressBar';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import type { Debt } from '@/types';
+import { useState } from 'react';
+import type { DebtAccount } from '@/types';
 
-export const DebtTracker: React.FC = () => {
-  const { data, updateMoney } = useAppStore();
-  const money = data.money;
+interface DebtTrackerProps {
+  debts: DebtAccount[];
+  currency: string;
+  onUpdateDebts: (debts: DebtAccount[]) => void;
+}
+
+export function DebtTracker({ debts, currency, onUpdateDebts }: DebtTrackerProps) {
   const [showAdd, setShowAdd] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [total, setTotal] = useState('');
-  const [paid, setPaid] = useState('');
-  const debts = money.debts ?? [];
-  const currency = money.currency ?? 'AED';
+  const [balance, setBalance] = useState('');
+  const [interestRate, setInterestRate] = useState('');
+  const [minimumPayment, setMinimumPayment] = useState('');
 
   const handleAdd = () => {
-    if (!name.trim() || !total) return;
-    const debt: Debt = { id: Date.now().toString(), name: name.trim(), totalAmount: parseFloat(total), paidAmount: parseFloat(paid) || 0, createdAt: new Date().toISOString() };
-    updateMoney({ debts: [...debts, debt] });
-    setName(''); setTotal(''); setPaid(''); setShowAdd(false);
+    if (!name || !balance) return;
+    const newDebt: DebtAccount = {
+      id: Date.now().toString(),
+      name,
+      balance: parseFloat(balance),
+      interestRate: interestRate ? parseFloat(interestRate) : 0,
+      minimumPayment: minimumPayment ? parseFloat(minimumPayment) : 0,
+    };
+    onUpdateDebts([...debts, newDebt]);
+    setName('');
+    setBalance('');
+    setInterestRate('');
+    setMinimumPayment('');
+    setShowAdd(false);
   };
 
-  const handleDelete = () => {
-    if (!deleteId) return;
-    updateMoney({ debts: debts.filter((d: any) => d.id !== deleteId) });
-    setDeleteId(null);
-  };
-
-  const totalDebt = debts.reduce((s: number, d: any) => s + d.totalAmount, 0);
-  const totalPaid = debts.reduce((s: number, d: any) => s + d.paidAmount, 0);
+  const totalDebt = debts.reduce((sum, d) => sum + (d.balance ?? 0), 0);
 
   return (
-    <>
-      {debts.length > 0 && (
-        <Card className="p-5 mb-4">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-earth-600 font-medium">Total Debt Progress</span>
-            <span className="text-earth-500">{currency} {totalPaid.toLocaleString()} / {currency} {totalDebt.toLocaleString()}</span>
-          </div>
-          <ProgressBar value={totalPaid} max={totalDebt || 1} variant="sage" size="lg" />
-        </Card>
-      )}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-display font-bold text-earth-900">Debts</h3>
-        <Button variant="ghost" size="sm" onClick={() => setShowAdd(true)} icon={<Plus className="w-4 h-4" />}>Add</Button>
+    <div className="bg-white rounded-garden p-4 shadow-garden">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-earth">Debt Tracker</h3>
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          className="text-sm text-sage hover:text-sage/80"
+        >
+          {showAdd ? 'Cancel' : '+ Add Debt'}
+        </button>
       </div>
-      {debts.length === 0 ? (
-        <Card className="p-8 text-center"><Target className="w-10 h-10 text-earth-300 mx-auto mb-2" /><p className="text-sm text-earth-500">No debts tracked. That's great!</p></Card>
-      ) : (
-        <div className="space-y-3">
-          {debts.map((debt: any) => {
-            const pct = debt.totalAmount > 0 ? Math.round((debt.paidAmount / debt.totalAmount) * 100) : 0;
-            return (
-              <motion.div key={debt.id} layout>
-                <Card className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div><p className="font-medium text-earth-900">{debt.name}</p><p className="text-xs text-earth-500">{pct}% paid off</p></div>
-                    <button onClick={() => setDeleteId(debt.id)} className="text-earth-400 hover:text-rose-500 p-1"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                  <ProgressBar value={debt.paidAmount} max={debt.totalAmount || 1} variant={pct >= 75 ? 'sage' : 'amber'} size="md" />
-                  <div className="flex justify-between text-xs text-earth-500 mt-1.5">
-                    <span>{currency} {debt.paidAmount.toLocaleString()} paid</span>
-                    <span>{currency} {(debt.totalAmount - debt.paidAmount).toLocaleString()} left</span>
-                  </div>
-                </Card>
-              </motion.div>
-            );
-          })}
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="text-center p-3 bg-terracotta/10 rounded-garden">
+          <p className="text-xs text-earth/60">Total Outstanding</p>
+          <p className="text-lg font-bold text-terracotta">{currency} {totalDebt.toLocaleString()}</p>
+        </div>
+        <div className="text-center p-3 bg-sage/10 rounded-garden">
+          <p className="text-xs text-earth/60">Accounts</p>
+          <p className="text-lg font-bold text-sage">{debts.length}</p>
+        </div>
+      </div>
+
+      {/* Add Form */}
+      {showAdd && (
+        <div className="space-y-3 mb-4 p-3 bg-cream rounded-garden">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Debt name"
+            className="w-full p-2 rounded-garden border border-earth/20 text-sm"
+          />
+          <input
+            type="number"
+            value={balance}
+            onChange={(e) => setBalance(e.target.value)}
+            placeholder="Outstanding balance"
+            className="w-full p-2 rounded-garden border border-earth/20 text-sm"
+          />
+          <input
+            type="number"
+            value={interestRate}
+            onChange={(e) => setInterestRate(e.target.value)}
+            placeholder="Interest rate % (optional)"
+            className="w-full p-2 rounded-garden border border-earth/20 text-sm"
+          />
+          <input
+            type="number"
+            value={minimumPayment}
+            onChange={(e) => setMinimumPayment(e.target.value)}
+            placeholder="Minimum payment (optional)"
+            className="w-full p-2 rounded-garden border border-earth/20 text-sm"
+          />
+          <button
+            onClick={handleAdd}
+            className="w-full py-2 bg-earth text-cream rounded-garden text-sm font-medium"
+          >
+            Add Debt
+          </button>
         </div>
       )}
-      <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Debt">
-        <div className="space-y-4">
-          <Input label="Name" placeholder="e.g. Car Loan" value={name} onChange={(e) => setName(e.target.value)} />
-          <Input label="Total Amount" type="number" placeholder="0" value={total} onChange={(e) => setTotal(e.target.value)} />
-          <Input label="Already Paid" type="number" placeholder="0" value={paid} onChange={(e) => setPaid(e.target.value)} />
-          <Button variant="primary" fullWidth onClick={handleAdd}>Add Debt</Button>
-        </div>
-      </Modal>
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Debt" message="Are you sure you want to remove this debt?" confirmLabel="Delete" variant="danger" />
-    </>
+
+      {/* Debt List */}
+      <div className="space-y-3">
+        {debts.map((debt) => (
+          <div key={debt.id} className="p-3 bg-cream/50 rounded-garden">
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium text-earth">{debt.name}</span>
+              <span className="text-sm font-bold text-terracotta">
+                {currency} {(debt.balance ?? 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex gap-3 text-xs text-earth/60">
+              {debt.interestRate > 0 && <span>{debt.interestRate}% APR</span>}
+              {debt.minimumPayment > 0 && <span>Min: {currency} {debt.minimumPayment.toLocaleString()}</span>}
+            </div>
+          </div>
+        ))}
+        {debts.length === 0 && (
+          <p className="text-sm text-earth/40 text-center py-4">No debts tracked yet</p>
+        )}
+      </div>
+    </div>
   );
-};
+}
