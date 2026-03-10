@@ -31,8 +31,8 @@ export function GardenPage() {
   };
 
   const handleAction = (plantId: string, action: GardenActionType) => {
-    const result = processGardenAction(garden, plantId, action);
-    updateGarden(result);
+    const result = processGardenAction(garden, action);
+    updateGarden(result.garden);
   };
 
   return (
