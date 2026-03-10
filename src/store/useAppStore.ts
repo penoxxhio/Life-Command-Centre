@@ -238,7 +238,7 @@ export const useAppStore = create<AppStore>()(
               creature: result.creature,
               xpHistory: [...s.data.xpHistory, xpEvent],
             },
-            toasts: [...s.toasts, { id: Date.now().toString(), message: `+${result.xpGained} XP`, type: 'xp', duration: 3000 }],
+            toasts: [...s.toasts, { id: Date.now().toString(), message: `+${result.xpGained} XP \u2014 ${result.creature.name} is pumped!`, type: 'xp', duration: 3000 }],
           };
         }),
 
@@ -265,7 +265,7 @@ export const useAppStore = create<AppStore>()(
               creature: result.creature,
               xpHistory: [...s.data.xpHistory, xpEvent],
             },
-            toasts: [...s.toasts, { id: Date.now().toString(), message: `+${result.xpGained} XP`, type: 'xp', duration: 3000 }],
+            toasts: [...s.toasts, { id: Date.now().toString(), message: `+${result.xpGained} XP \u2014 ${result.creature.name} feels nourished!`, type: 'xp', duration: 3000 }],
           };
         }),
 
