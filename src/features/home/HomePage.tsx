@@ -1,151 +1,237 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import {
-  Wallet, Flower2, Dumbbell, UtensilsCrossed, Flame,
-  Footprints, Heart, ChevronRight,
-} from 'lucide-react';
-import { useAppStore } from '@/store/useAppStore';
-import { Card } from '@/components/ui/Card';
-import { ProgressBar } from '@/components/ui/ProgressBar';
-import { PLANT_CONFIG } from '@/constants';
-import {
-  getMonthlySpent, getTodayCalories, getTodayProtein, getTodaySteps,
-} from '@/utils/computedHelpers';
-
-interface StatCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  subtitle?: string;
-  color: string;
-  bgColor: string;
-  onClick?: () => void;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ icon, label, value, subtitle, color, bgColor, onClick }) => (
-  <motion.div whileTap={{ scale: 0.97 }} onClick={onClick} className="cursor-pointer">
-    <Card className="p-4 relative overflow-hidden">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium text-earth-500 uppercase tracking-wide mb-1">{label}</p>
-          <p className="text-2xl font-display font-bold text-earth-900">{value}</p>
-          {subtitle && <p className="text-xs text-earth-500 mt-0.5">{subtitle}</p>}
-        </div>
-        <div className={`w-10 h-10 rounded-xl ${bgColor} flex items-center justify-center`}>
-          <div className={color}>{icon}</div>
-        </div>
-      </div>
-    </Card>
-  </motion.div>
-);
-
-const GardenPreview: React.FC = () => {
-  const { data } = useAppStore();
-  const garden = data.garden;
-  const activePlants = garden.plots.filter((p) => p.plant).slice(0, 4);
-  return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Flower2 className="w-5 h-5 text-sage-600" />
-          <h3 className="font-display font-semibold text-earth-900">Garden</h3>
-        </div>
-        <span className="text-xs text-earth-500">Level {garden.level}</span>
-      </div>
-      {activePlants.length === 0 ? (
-        <p className="text-sm text-earth-400 text-center py-4">Plant your first seed!</p>
-      ) : (
-        <div className="grid grid-cols-4 gap-2">
-          {activePlants.map((plot) => {
-            const plant = plot.plant!;
-            const config = PLANT_CONFIG[plant.type];
-            return (
-              <div key={plot.id} className="text-center">
-                <div className="text-2xl mb-1">{config?.emoji ?? '\uD83C\uDF31'}</div>
-                <p className="text-xs text-earth-600 truncate">{config?.name ?? plant.type}</p>
-                <div className="mt-1">
-                  <ProgressBar value={plant.health} max={100} variant="sage" size="sm" />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </Card>
-  );
-};
+import { Flame, Zap, Target, TrendingUp, Droplets, Moon } from 'lucide-react';
+import { useAppStore } from '../../store/useAppStore';
+import { GlassCard, StatRing, GlassProgress } from '../../components/ui';
+import { CreatureSprite } from '../creature/CreatureSprite';
+import { getEvolutionProgress, getStageIndex } from '../creature/creatureService';
+import { STAGE_ORDER, MOOD_EXPRESSIONS } from '../creature/creatureConfig';
 
 export function HomePage() {
-  const navigate = useNavigate();
-  const { data } = useAppStore();
-  const { money, fitness, nutrition, profile } = data;
+  const data = useAppStore((s) => s.data);
+  const { profile, creature, money, fitness, nutrition, streaks } = data;
 
-  const monthlySpent = useMemo(() => getMonthlySpent(money.transactions, money.expenses), [money.transactions, money.expenses]);
-  const todayCalories = useMemo(() => getTodayCalories(nutrition.meals), [nutrition.meals]);
-  const todayProtein = useMemo(() => getTodayProtein(nutrition.meals), [nutrition.meals]);
-  const todaySteps = useMemo(() => getTodaySteps(fitness.workouts), [fitness.workouts]);
+  const today = new Date().toISOString().split('T')[0];
 
-  const calorieGoal = nutrition.goals?.dailyCalorieGoal ?? 2000;
-  const proteinGoal = nutrition.goals?.dailyProteinGoal ?? 150;
-  const stepGoal = fitness.goals?.dailyStepTarget ?? 10000;
-  const currency = profile.currency ?? '$';
+  // Today's nutrition totals
+  const todayMeals = useMemo(
+    () => nutrition.meals.filter((m) => m.date === today),
+    [nutrition.meals, today]
+  );
+  const todayCals = todayMeals.reduce((s, m) => s + m.calories, 0);
+  const todayProtein = todayMeals.reduce((s, m) => s + m.protein, 0);
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+  // This week's workouts
+  const weekStart = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay());
+    return d.toISOString().split('T')[0];
   }, []);
+  const weekWorkouts = fitness.workouts.filter((w) => w.date >= weekStart).length;
+
+  // Net worth
+  const netWorth = money.accounts.reduce((s, a) => {
+    return s + (a.type === 'credit' || a.type === 'loan' ? -a.balance : a.balance);
+  }, 0);
+
+  // Total debt
+  const totalDebt = money.debts.reduce((s, d) => s + d.balance, 0);
+
+  // Monthly spending
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const monthSpending = money.transactions
+    .filter((t) => t.type === 'expense' && t.date >= monthStart)
+    .reduce((s, t) => s + t.amount, 0);
+
+  // Water today
+  const todayWater = nutrition.waterLog.find((w) => w.date === today)?.glasses || 0;
+
+  // Greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const evoProgress = getEvolutionProgress(creature);
+  const stageIdx = getStageIndex(creature.stage);
+  const moodInfo = MOOD_EXPRESSIONS[creature.mood];
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    show: { opacity: 1, y: 0 },
+  };
 
   return (
-    <div className="space-y-6 pb-20">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-earth-900">
-          {greeting}, {profile.name || 'there'}
+    <motion.div
+      className="px-4 pt-6 pb-28 max-w-lg mx-auto space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      {/* Greeting */}
+      <motion.div variants={itemVariants}>
+        <h1 className="font-display text-2xl font-bold text-void-100">
+          {greeting}, {profile.name}
         </h1>
-        <p className="text-earth-500 text-sm mt-1">Here's your life at a glance</p>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard icon={<Wallet className="w-5 h-5" />} label="Spent this month" value={`${currency}${monthlySpent.toLocaleString()}`} color="text-amber-600" bgColor="bg-amber-50" onClick={() => navigate('/money')} />
-        <StatCard icon={<Flame className="w-5 h-5" />} label="Calories today" value={`${todayCalories}`} subtitle={`of ${calorieGoal} goal`} color="text-orange-600" bgColor="bg-orange-50" onClick={() => navigate('/nutrition')} />
-        <StatCard icon={<Footprints className="w-5 h-5" />} label="Steps today" value={todaySteps.toLocaleString()} subtitle={`of ${stepGoal.toLocaleString()} goal`} color="text-blue-600" bgColor="bg-blue-50" onClick={() => navigate('/fitness')} />
-        <StatCard icon={<Heart className="w-5 h-5" />} label="Protein today" value={`${todayProtein}g`} subtitle={`of ${proteinGoal}g goal`} color="text-rose-600" bgColor="bg-rose-50" onClick={() => navigate('/nutrition')} />
-      </div>
-      <Card className="p-4 space-y-3">
-        <h3 className="font-display font-semibold text-earth-900 text-sm">Today's Progress</h3>
-        <div>
-          <div className="flex justify-between text-xs mb-1"><span className="text-earth-600">Calories</span><span className="text-earth-500">{todayCalories} / {calorieGoal}</span></div>
-          <ProgressBar value={todayCalories} max={calorieGoal} variant="amber" />
-        </div>
-        <div>
-          <div className="flex justify-between text-xs mb-1"><span className="text-earth-600">Protein</span><span className="text-earth-500">{todayProtein}g / {proteinGoal}g</span></div>
-          <ProgressBar value={todayProtein} max={proteinGoal} variant="rose" />
-        </div>
-        <div>
-          <div className="flex justify-between text-xs mb-1"><span className="text-earth-600">Steps</span><span className="text-earth-500">{todaySteps.toLocaleString()} / {stepGoal.toLocaleString()}</span></div>
-          <ProgressBar value={todaySteps} max={stepGoal} variant="sage" />
-        </div>
-      </Card>
-      <GardenPreview />
-      <div className="space-y-2">
-        {[
-          { icon: <Wallet className="w-5 h-5" />, label: 'Money', path: '/money', color: 'text-amber-600' },
-          { icon: <Dumbbell className="w-5 h-5" />, label: 'Fitness', path: '/fitness', color: 'text-blue-600' },
-          { icon: <UtensilsCrossed className="w-5 h-5" />, label: 'Nutrition', path: '/nutrition', color: 'text-orange-600' },
-          { icon: <Flower2 className="w-5 h-5" />, label: 'Garden', path: '/garden', color: 'text-sage-600' },
-        ].map((item) => (
-          <motion.div key={item.path} whileTap={{ scale: 0.98 }} onClick={() => navigate(item.path)}>
-            <Card className="p-3 flex items-center justify-between cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className={item.color}>{item.icon}</div>
-                <span className="font-medium text-earth-800">{item.label}</span>
+        <p className="text-void-400 text-sm mt-0.5">{moodInfo.message}</p>
+      </motion.div>
+
+      {/* Creature hero section */}
+      <motion.div variants={itemVariants}>
+        <GlassCard variant="default" padding="lg" className="flex flex-col items-center">
+          <CreatureSprite creature={creature} size="xl" />
+          <div className="mt-4 w-full space-y-3">
+            {/* Evolution progress */}
+            {creature.stage !== 'legendary' && (
+              <GlassProgress
+                value={evoProgress}
+                color="neon"
+                size="md"
+                label={`Stage ${stageIdx + 1}/5 \u2014 ${creature.stage.toUpperCase()}`}
+                showValue
+              />
+            )}
+            {creature.stage === 'legendary' && (
+              <p className="text-center text-xs font-semibold text-ember-400 uppercase tracking-wider">
+                Legendary Status Achieved
+              </p>
+            )}
+            {/* Creature stat rings */}
+            <div className="flex justify-around pt-2">
+              <StatRing value={creature.stats.hunger} color="amber" size={52} label="Hunger" strokeWidth={4} />
+              <StatRing value={creature.stats.energy} color="neon" size={52} label="Energy" strokeWidth={4} />
+              <StatRing value={creature.stats.happiness} color="purple" size={52} label="Happy" strokeWidth={4} />
+              <StatRing value={creature.stats.discipline} color="green" size={52} label="Discip" strokeWidth={4} />
+            </div>
+          </div>
+        </GlassCard>
+      </motion.div>
+
+      {/* Quick stats grid */}
+      <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
+        {/* Streak */}
+        <GlassCard hover padding="sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-streak/10">
+              <Flame size={18} className="text-streak" />
+            </div>
+            <div>
+              <p className="text-lg font-bold font-mono text-void-100">{streaks.current}</p>
+              <p className="text-[10px] text-void-400 uppercase tracking-wider">Day Streak</p>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* XP */}
+        <GlassCard hover padding="sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-xp/10">
+              <Zap size={18} className="text-xp" />
+            </div>
+            <div>
+              <p className="text-lg font-bold font-mono text-void-100">{creature.xp}</p>
+              <p className="text-[10px] text-void-400 uppercase tracking-wider">Total XP</p>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* Workouts this week */}
+        <GlassCard hover padding="sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-neon-500/10">
+              <Target size={18} className="text-neon-400" />
+            </div>
+            <div>
+              <p className="text-lg font-bold font-mono text-void-100">
+                {weekWorkouts}/{fitness.goals.weeklyWorkouts}
+              </p>
+              <p className="text-[10px] text-void-400 uppercase tracking-wider">Workouts</p>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* Net Worth */}
+        <GlassCard hover padding="sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-500/10">
+              <TrendingUp size={18} className="text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-lg font-bold font-mono text-void-100">
+                {netWorth.toLocaleString()}
+              </p>
+              <p className="text-[10px] text-void-400 uppercase tracking-wider">Net Worth</p>
+            </div>
+          </div>
+        </GlassCard>
+      </motion.div>
+
+      {/* Today's nutrition summary */}
+      <motion.div variants={itemVariants}>
+        <GlassCard padding="md">
+          <p className="section-title mb-3">Today's Fuel</p>
+          <div className="grid grid-cols-3 gap-4">
+            <StatRing
+              value={todayCals}
+              max={nutrition.goals.dailyCalories}
+              color="amber"
+              size={64}
+              label="Calories"
+              strokeWidth={5}
+            />
+            <StatRing
+              value={todayProtein}
+              max={nutrition.goals.dailyProtein}
+              color="neon"
+              size={64}
+              label="Protein"
+              strokeWidth={5}
+            />
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-1">
+                <Droplets size={14} className="text-mp" />
+                <span className="font-mono font-semibold text-void-100 text-sm">
+                  {todayWater}/{nutrition.goals.waterGlasses}
+                </span>
               </div>
-              <ChevronRight className="w-4 h-4 text-earth-400" />
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-    </div>
+              <span className="text-[10px] text-void-400 uppercase tracking-wider">Water</span>
+            </div>
+          </div>
+        </GlassCard>
+      </motion.div>
+
+      {/* Monthly spend */}
+      <motion.div variants={itemVariants}>
+        <GlassCard padding="md">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="section-title">This Month</p>
+              <p className="text-2xl font-bold font-mono text-void-100 mt-1">
+                {profile.currency} {monthSpending.toLocaleString()}
+              </p>
+            </div>
+            {totalDebt > 0 && (
+              <div className="text-right">
+                <p className="text-[10px] text-void-400 uppercase tracking-wider">Debt</p>
+                <p className="text-sm font-mono text-hp">
+                  {profile.currency} {totalDebt.toLocaleString()}
+                </p>
+              </div>
+            )}
+          </div>
+          {money.monthlyIncome > 0 && (
+            <GlassProgress
+              value={monthSpending}
+              max={money.monthlyIncome}
+              color={monthSpending > money.monthlyIncome * 0.9 ? 'red' : 'neon'}
+              size="sm"
+              className="mt-3"
+            />
+          )}
+        </GlassCard>
+      </motion.div>
+    </motion.div>
   );
 }
