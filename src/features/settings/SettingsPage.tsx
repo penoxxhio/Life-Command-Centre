@@ -1,278 +1,59 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  User, Wallet, Heart, Bell, Palette, Database, ChevronDown, ChevronUp,
-  Save, Trash2, Download, Upload, Key
-} from 'lucide-react';
+import { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { createInitialAppData } from '@/constants';
 
-interface SectionProps {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}
-
-const SettingsSection: React.FC<SectionProps> = ({ title, icon, children, defaultOpen = false }) => {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <Card className="overflow-hidden">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-4 hover:bg-cream-50 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          {icon}
-          <span className="font-display font-bold text-earth-900">{title}</span>
-        </div>
-        {open ? <ChevronUp className="w-4 h-4 text-earth-400" /> : <ChevronDown className="w-4 h-4 text-earth-400" />}
-      </button>
-      {open && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          className="px-4 pb-4 space-y-4 border-t border-cream-200"
-        >
-          <div className="pt-4">{children}</div>
-        </motion.div>
-      )}
-    </Card>
-  );
-};
-
-export const SettingsPage: React.FC = () => {
-  const { data, updateMoney, updateNutrition, updateFitness, updateProfile, updateNotifications, setData } = useAppStore();
-  const money = data.money;
-  const nutrition = data.nutrition;
-  const fitness = data.fitness;
+export function SettingsPage() {
+  const { data, updateProfile, updateFitness, updateNutrition, setData, addToast } = useAppStore();
   const profile = data.profile;
-  const notifications = data.notifications;
+  const fitnessGoals = data.fitness.goals;
+  const nutritionGoals = data.nutrition.goals;
 
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [geminiKey, setGeminiKey] = useState('');
-  const [keySaved, setKeySaved] = useState(false);
+  const [name, setName] = useState(profile.name);
+  const [currency, setCurrency] = useState(profile.currency);
+  const [payday, setPayday] = useState(String(profile.payday ?? 1));
+  const [dailyCalorieGoal, setDailyCalorieGoal] = useState(String(nutritionGoals?.dailyCalorieGoal ?? 2000));
+  const [dailyProteinGoal, setDailyProteinGoal] = useState(String(nutritionGoals?.dailyProteinGoal ?? 150));
+  const [dailyStepTarget, setDailyStepTarget] = useState(String(fitnessGoals?.dailyStepTarget ?? 10000));
+  const [showReset, setShowReset] = useState(false);
 
-  // Money settings
-  const [income, setIncome] = useState((money.budgetConfig?.totalIncome ?? 0).toString());
-  const [currency, setCurrency] = useState(money.currency ?? 'AED');
-
-  // Health settings
-  const [calorieGoal, setCalorieGoal] = useState((nutrition.goals?.dailyCalorieGoal ?? 2000).toString());
-  const [proteinGoal, setProteinGoal] = useState((nutrition.goals?.dailyProteinGoal ?? 150).toString());
-  const [stepGoal, setStepGoal] = useState((fitness.goals?.dailyStepGoal ?? fitness.goals?.dailyStepTarget ?? 10000).toString());
-
-  const handleSaveApiKey = () => {
-    localStorage.setItem('gemini_api_key', geminiKey.trim());
-    setKeySaved(true);
-    setTimeout(() => setKeySaved(false), 2000);
+  const handleSaveProfile = () => {
+    updateProfile({ name, currency, payday: parseInt(payday) || 1 });
+    addToast('success', 'Profile saved');
   };
 
-  const handleSaveMoney = () => {
-    updateMoney({
-      currency,
-      budgetConfig: {
-        ...money.budgetConfig,
-        totalIncome: parseFloat(income) || 0,
-      },
-    });
+  const handleSaveGoals = () => {
+    updateNutrition({ ...data.nutrition, goals: { ...data.nutrition.goals, dailyCalorieGoal: parseInt(dailyCalorieGoal) || 2000, dailyProteinGoal: parseInt(dailyProteinGoal) || 150 } });
+    updateFitness({ ...data.fitness, goals: { ...data.fitness.goals, dailyStepTarget: parseInt(dailyStepTarget) || 10000 } });
+    addToast('success', 'Goals saved');
   };
 
-  const handleSaveHealth = () => {
-    updateNutrition({
-      goals: {
-        ...nutrition.goals,
-        dailyCalorieGoal: parseInt(calorieGoal) || 2000,
-        dailyProteinGoal: parseInt(proteinGoal) || 150,
-      },
-    });
-    updateFitness({
-      goals: {
-        ...fitness.goals,
-        dailyStepGoal: parseInt(stepGoal) || 10000,
-        dailyStepTarget: parseInt(stepGoal) || 10000,
-      },
-    });
-  };
-
-  const handleExport = () => {
-    const exportData = JSON.stringify(data, null, 2);
-    const blob = new Blob([exportData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `life-command-centre-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleReset = () => {
-    const { createInitialAppData } = require('@/constants');
-    setData(createInitialAppData());
-    setShowResetConfirm(false);
-    window.location.reload();
-  };
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-  };
-  const item = {
-    hidden: { opacity: 0, y: 12 },
-    show: { opacity: 1, y: 0 },
-  };
+  const handleReset = () => { setData(createInitialAppData()); setShowReset(false); addToast('info', 'All data has been reset'); };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-4 pb-6">
-      {/* Profile */}
-      <motion.div variants={item}>
-        <SettingsSection title="Profile" icon={<User className="w-5 h-5 text-sage-600" />} defaultOpen>
-          <Input
-            label="Display Name"
-            placeholder="Your name"
-            value={profile.name ?? ''}
-            onChange={(e) => updateProfile({ name: e.target.value })}
-          />
-        </SettingsSection>
-      </motion.div>
-
-      {/* AI Settings */}
-      <motion.div variants={item}>
-        <SettingsSection title="AI Assistant" icon={<Key className="w-5 h-5 text-amber-600" />}>
-          <Input
-            label="Gemini API Key"
-            type="password"
-            placeholder="Enter your API key"
-            value={geminiKey}
-            onChange={(e) => setGeminiKey(e.target.value)}
-          />
-          <p className="text-xs text-earth-400 mt-1">
-            Used for AI meal logging and workout parsing. Get a free key from Google AI Studio.
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSaveApiKey}
-            icon={<Save className="w-3.5 h-3.5" />}
-            className="mt-2"
-          >
-            {keySaved ? 'Saved!' : 'Save Key'}
-          </Button>
-        </SettingsSection>
-      </motion.div>
-
-      {/* Money Settings */}
-      <motion.div variants={item}>
-        <SettingsSection title="Money" icon={<Wallet className="w-5 h-5 text-sage-600" />}>
-          <Input
-            label="Monthly Income"
-            type="number"
-            placeholder="15000"
-            value={income}
-            onChange={(e) => setIncome(e.target.value)}
-          />
-          <div>
-            <label className="block text-sm font-medium text-earth-700 mb-1.5">Currency</label>
-            <div className="flex gap-2">
-              {['AED', 'USD', 'EUR', 'GBP', 'SAR'].map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCurrency(c)}
-                  className={`px-3 py-1.5 rounded-garden text-sm font-medium transition-all ${
-                    currency === c ? 'bg-sage-500 text-white' : 'bg-cream-100 text-earth-600'
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Button variant="primary" size="sm" onClick={handleSaveMoney} icon={<Save className="w-3.5 h-3.5" />}>
-            Save
-          </Button>
-        </SettingsSection>
-      </motion.div>
-
-      {/* Health Settings */}
-      <motion.div variants={item}>
-        <SettingsSection title="Health Goals" icon={<Heart className="w-5 h-5 text-rose-500" />}>
-          <Input label="Daily Calorie Goal" type="number" value={calorieGoal} onChange={(e) => setCalorieGoal(e.target.value)} />
-          <Input label="Daily Protein Goal (g)" type="number" value={proteinGoal} onChange={(e) => setProteinGoal(e.target.value)} />
-          <Input label="Daily Step Goal" type="number" value={stepGoal} onChange={(e) => setStepGoal(e.target.value)} />
-          <Button variant="primary" size="sm" onClick={handleSaveHealth} icon={<Save className="w-3.5 h-3.5" />}>
-            Save Goals
-          </Button>
-        </SettingsSection>
-      </motion.div>
-
-      {/* Notifications */}
-      <motion.div variants={item}>
-        <SettingsSection title="Notifications" icon={<Bell className="w-5 h-5 text-amber-600" />}>
-          <div className="space-y-3">
-            {[
-              { key: 'gardenReminders', label: 'Garden reminders' },
-              { key: 'fitnessReminders', label: 'Workout reminders' },
-              { key: 'moneyReminders', label: 'Budget alerts' },
-              { key: 'nutritionReminders', label: 'Meal reminders' },
-            ].map((notif) => (
-              <label key={notif.key} className="flex items-center justify-between">
-                <span className="text-sm text-earth-700">{notif.label}</span>
-                <input
-                  type="checkbox"
-                  checked={(notifications as Record<string, unknown>)?.[notif.key] as boolean ?? true}
-                  onChange={(e) =>
-                    updateNotifications({
-                      [notif.key]: e.target.checked,
-                    })
-                  }
-                  className="w-5 h-5 rounded text-sage-500 border-cream-300 focus:ring-sage-500"
-                />
-              </label>
-            ))}
-          </div>
-        </SettingsSection>
-      </motion.div>
-
-      {/* Data Management */}
-      <motion.div variants={item}>
-        <SettingsSection title="Data" icon={<Database className="w-5 h-5 text-earth-500" />}>
-          <div className="space-y-3">
-            <Button variant="secondary" fullWidth onClick={handleExport} icon={<Download className="w-4 h-4" />}>
-              Export Backup
-            </Button>
-            <Button
-              variant="danger"
-              fullWidth
-              onClick={() => setShowResetConfirm(true)}
-              icon={<Trash2 className="w-4 h-4" />}
-            >
-              Reset All Data
-            </Button>
-            <p className="text-xs text-earth-400 text-center">
-              This will permanently delete all your data including financial records, health logs, and garden progress.
-            </p>
-          </div>
-        </SettingsSection>
-      </motion.div>
-
-      {/* Version */}
-      <motion.div variants={item} className="text-center py-4">
-        <p className="text-xs text-earth-400">Life Command Centre v2.0</p>
-        <p className="text-xs text-earth-300">Built with love and garden vibes</p>
-      </motion.div>
-
-      <ConfirmDialog
-        isOpen={showResetConfirm}
-        onClose={() => setShowResetConfirm(false)}
-        onConfirm={handleReset}
-        title="Reset All Data"
-        message="This will permanently erase everything. Your garden, finances, and health data will all be lost. Are you sure?"
-        confirmLabel="Reset Everything"
-        variant="danger"
-      />
-    </motion.div>
+    <div className="space-y-6 pb-20">
+      <h1 className="text-2xl font-display font-bold text-earth-900">Settings</h1>
+      <Card className="p-4 space-y-4">
+        <h2 className="font-display font-semibold text-earth-800">Profile</h2>
+        <div><label className="text-sm text-earth-600 mb-1 block">Name</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-earth-200 rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="text-sm text-earth-600 mb-1 block">Currency</label><select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full border border-earth-200 rounded-lg px-3 py-2 text-sm"><option value="$">$ USD</option><option value="\u20ac">EUR</option><option value="\u00a3">GBP</option><option value="AED">AED</option></select></div>
+        <div><label className="text-sm text-earth-600 mb-1 block">Payday</label><input type="number" min="1" max="31" value={payday} onChange={(e) => setPayday(e.target.value)} className="w-full border border-earth-200 rounded-lg px-3 py-2 text-sm" /></div>
+        <Button onClick={handleSaveProfile}>Save Profile</Button>
+      </Card>
+      <Card className="p-4 space-y-4">
+        <h2 className="font-display font-semibold text-earth-800">Daily Goals</h2>
+        <div><label className="text-sm text-earth-600 mb-1 block">Calorie Goal</label><input type="number" value={dailyCalorieGoal} onChange={(e) => setDailyCalorieGoal(e.target.value)} className="w-full border border-earth-200 rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="text-sm text-earth-600 mb-1 block">Protein Goal (g)</label><input type="number" value={dailyProteinGoal} onChange={(e) => setDailyProteinGoal(e.target.value)} className="w-full border border-earth-200 rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="text-sm text-earth-600 mb-1 block">Step Target</label><input type="number" value={dailyStepTarget} onChange={(e) => setDailyStepTarget(e.target.value)} className="w-full border border-earth-200 rounded-lg px-3 py-2 text-sm" /></div>
+        <Button onClick={handleSaveGoals}>Save Goals</Button>
+      </Card>
+      <Card className="p-4 space-y-4 border-red-200">
+        <h2 className="font-display font-semibold text-red-700">Danger Zone</h2>
+        {!showReset ? (<Button variant="secondary" onClick={() => setShowReset(true)}>Reset All Data</Button>) : (
+          <div className="space-y-2"><p className="text-sm text-red-600">This will delete all your data. Are you sure?</p><div className="flex gap-2"><Button variant="secondary" onClick={() => setShowReset(false)}>Cancel</Button><Button onClick={handleReset}>Yes, Reset Everything</Button></div></div>
+        )}
+      </Card>
+    </div>
   );
-};
+}
