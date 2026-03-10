@@ -143,6 +143,7 @@ export interface BudgetConfig {
   livingCategories?: BudgetCategory[];
 }
 
+// MoneyData — lean: only raw stored data, NO derived fields
 export interface MoneyData {
   accounts: Account[];
   debtAccounts: DebtAccount[];
@@ -154,8 +155,6 @@ export interface MoneyData {
   recurring: RecurringExpense[];
   budgetConfig: BudgetConfig;
   currency: string;
-  monthlyIncome: number;
-  monthlySpent: number;
   debts: DebtAccount[];
 }
 
@@ -169,6 +168,14 @@ export interface Workout {
   caloriesBurned?: number;
   date: string;
   notes?: string;
+  steps?: number;
+}
+
+export interface SleepEntry {
+  id: string;
+  hours: number;
+  quality?: 'poor' | 'fair' | 'good' | 'excellent';
+  date: string;
 }
 
 export interface FitnessGoals {
@@ -189,12 +196,11 @@ export interface FitnessGoals {
   dailyStepTarget?: number;
 }
 
+// FitnessData — lean: only raw stored data, NO derived fields
 export interface FitnessData {
   workouts: Workout[];
+  sleepLog: SleepEntry[];
   goals: FitnessGoals;
-  todaySteps: number;
-  weeklyWorkoutCount: number;
-  lastSleepHours: number;
 }
 
 // ===== Nutrition =====
@@ -209,12 +215,17 @@ export interface Meal {
   date: string;
 }
 
+export interface NutritionGoals {
+  dailyCalorieGoal: number;
+  dailyProteinGoal: number;
+  dailyCarbGoal?: number;
+  dailyFatGoal?: number;
+}
+
+// NutritionData — lean: only raw stored data, NO derived fields
 export interface NutritionData {
   meals: Meal[];
-  todayCalories: number;
-  dailyCalorieGoal: number;
-  todayProtein: number;
-  dailyProteinGoal: number;
+  goals: NutritionGoals;
 }
 
 // ===== Garden =====
@@ -273,4 +284,4 @@ export interface ToastItem {
   message: string;
   type: 'success' | 'error' | 'info' | 'warning';
   duration?: number;
-}\n
+}
