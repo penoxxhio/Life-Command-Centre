@@ -27,7 +27,7 @@ export const AccountsList: React.FC = () => {
   const money = data.money;
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newType, setNewType] = useState('bank');
+  const [newType, setNewType] = useState<Account['type']>('bank');
   const [newBalance, setNewBalance] = useState('');
   const accounts = money.accounts ?? [];
   const currency = money.currency ?? 'AED';
