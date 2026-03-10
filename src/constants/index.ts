@@ -86,6 +86,22 @@ export const PLANT_CONFIG: Record<
     xpToGrow: 70,
     description: 'Tropical and relaxed, steady growth',
   },
+  fern: {
+    name: 'Fern',
+    emoji: '\ud83c\udf3f',
+    color: '#5B8C5A',
+    decayRate: 6,
+    xpToGrow: 45,
+    description: 'Lush and elegant, loves shade and moisture',
+  },
+  bonsai: {
+    name: 'Bonsai',
+    emoji: '\ud83c\udf33',
+    color: '#6B4226',
+    decayRate: 4,
+    xpToGrow: 90,
+    description: 'Ancient art of patience, slow but rewarding',
+  },
 };
 
 export const GROWTH_STAGES: Record<GrowthStage, { label: string; emoji: string; multiplier: number }> = {
