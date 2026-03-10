@@ -1,11 +1,76 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        earth: {
+          50: '#faf7f2',
+          100: '#f0ebe0',
+          200: '#e0d5c0',
+          300: '#cdb99a',
+          400: '#b89b74',
+          500: '#a8865b',
+          600: '#96724d',
+          700: '#7c5b40',
+          800: '#664b38',
+          900: '#553f30',
+        },
+        cream: {
+          50: '#fefcf8',
+          100: '#fdf8ed',
+          200: '#faf0d6',
+          300: '#f5e4b8',
+        },
+        sage: {
+          50: '#f4f7f4',
+          100: '#e4ebe4',
+          200: '#c9d8c9',
+          300: '#a3bda3',
+          400: '#7a9e7a',
+          500: '#5c8a5c',
+          600: '#476e47',
+          700: '#3a5a3a',
+        },
+        terracotta: {
+          50: '#fdf5f0',
+          100: '#fbe8dc',
+          200: '#f6cdb8',
+          300: '#f0ab8a',
+          400: '#e8845a',
+          500: '#e06a38',
+          600: '#d1522a',
+          700: '#ae4025',
+        },
+        leaf: {
+          50: '#f0faf0',
+          100: '#dcf2dc',
+          200: '#bbe6bb',
+          300: '#8dd38d',
+          400: '#5dba5d',
+          500: '#3da03d',
+          600: '#2d802d',
+          700: '#266626',
+        },
+      },
+      fontFamily: {
+        display: ['Nunito', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        garden: '0.75rem',
+        'garden-lg': '1rem',
+        'garden-xl': '1.5rem',
+      },
+      boxShadow: {
+        garden: '0 2px 8px rgba(85, 63, 48, 0.08)',
+        'garden-md': '0 4px 16px rgba(85, 63, 48, 0.1)',
+        'garden-lg': '0 8px 32px rgba(85, 63, 48, 0.12)',
+        warm: '0 2px 8px rgba(224, 106, 56, 0.1)',
+        'warm-md': '0 4px 16px rgba(224, 106, 56, 0.15)',
+        'warm-lg': '0 8px 32px rgba(224, 106, 56, 0.18)',
+        sunlight: '0 4px 16px rgba(251, 191, 36, 0.2)',
+      },
+    },
   },
   plugins: [],
-}
+};
