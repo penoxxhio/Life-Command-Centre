@@ -36,7 +36,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   animated = true,
   className = '',
 }) => {
-  const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+  const percentage = max === 0 ? 0 : Math.min(Math.max((value / max) * 100, 0), 100);
 
   return (
     <div className={className}>
