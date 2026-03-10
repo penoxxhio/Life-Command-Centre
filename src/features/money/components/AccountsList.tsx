@@ -71,27 +71,46 @@ export const AccountsList: React.FC = () => {
                     <p className="font-medium text-earth-900">{account.name}</p>
                     <p className="text-xs text-earth-500 capitalize">{account.type}</p>
                   </div>
-                  <p className="font-display font-bold text-earth-900">{currency} {account.balance?.toLocaleString()}</p>
+                  <p className="font-bold text-earth-900">
+                    {account.balance.toLocaleString()} {account.currency || currency}
+                  </p>
                 </div>
               </Card>
             </motion.div>
           ))}
         </div>
       )}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Account">
+
+      <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Account">
         <div className="space-y-4">
-          <Input label="Account Name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Main Checking" />
-          <div>
-            <label className="block text-sm font-medium text-earth-700 mb-1">Type</label>
-            <select className="w-full p-2 rounded-xl border border-earth-200 bg-white" value={newType} onChange={(e) => setNewType(e.target.value as Account['type'])}>
-              <option value="bank">Bank Account</option>
-              <option value="card">Credit Card</option>
-              <option value="ewallet">E-Wallet</option>
-              <option value="savings">Savings</option>
-            </select>
+          <Input
+            label="Account Name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="e.g. Main Checking"
+          />
+          <div className="grid grid-cols-4 gap-2">
+            {Object.entries(ACCOUNT_ICONS).map(([type, icon]) => (
+              <button
+                key={type}
+                onClick={() => setNewType(type as Account['type'])}
+                className={`p-3 rounded-xl flex flex-col items-center gap-1 transition-all ${newType === type ? 'bg-sage-100 ring-2 ring-sage-400' : 'bg-cream-50 hover:bg-cream-100'}`}
+              >
+                {icon}
+                <span className="text-xs capitalize">{type}</span>
+              </button>
+            ))}
           </div>
-          <Input label="Balance" type="number" value={newBalance} onChange={(e) => setNewBalance(e.target.value)} placeholder="0" />
-          <Button onClick={handleAdd} fullWidth>Add Account</Button>
+          <Input
+            label="Current Balance"
+            type="number"
+            value={newBalance}
+            onChange={(e) => setNewBalance(e.target.value)}
+            placeholder="0.00"
+          />
+          <Button onClick={handleAdd} fullWidth>
+            Add Account
+          </Button>
         </div>
       </Modal>
     </>
