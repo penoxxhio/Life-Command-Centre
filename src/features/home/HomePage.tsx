@@ -2,26 +2,16 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Wallet,
-  Flower2,
-  Dumbbell,
-  UtensilsCrossed,
-  TrendingUp,
-  Flame,
-  Moon,
-  Footprints,
-  Heart,
-  Sprout,
-  ChevronRight,
-  Sun,
-  Droplets,
+  Wallet, Flower2, Dumbbell, UtensilsCrossed, Flame,
+  Footprints, Heart, ChevronRight,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { Card } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { PLANT_CONFIG } from '@/constants';
-import { getMonthlySpent, getTodayCalories, getTodayProtein, getTodaySteps } from '@/utils/computedHelpers';
-import type { PlantType } from '@/types';
+import {
+  getMonthlySpent, getTodayCalories, getTodayProtein, getTodaySteps,
+} from '@/utils/computedHelpers';
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -46,7 +36,6 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, subtitle, color
           <div className={color}>{icon}</div>
         </div>
       </div>
-      <div className={`absolute -bottom-4 -right-4 w-20 h-20 ${bgColor} rounded-full opacity-30`} />
     </Card>
   </motion.div>
 );
@@ -54,169 +43,109 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, subtitle, color
 const GardenPreview: React.FC = () => {
   const { data } = useAppStore();
   const garden = data.garden;
-  const navigate = useNavigate();
-  const healthyPlants = garden.plants?.filter((p) => (p.health ?? 100) > 50).length ?? 0;
-  const totalPlants = garden.plants?.length ?? 0;
-
+  const activePlants = garden.plots.filter((p) => p.plant).slice(0, 4);
   return (
-    <motion.div whileTap={{ scale: 0.98 }} onClick={() => navigate('/garden')} className="cursor-pointer">
-      <Card className="p-5 bg-gradient-to-br from-sage-50 to-cream-50 border-sage-200">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Flower2 className="w-5 h-5 text-sage-600" />
-            <h3 className="font-display font-bold text-earth-900">Your Garden</h3>
-          </div>
-          <ChevronRight className="w-4 h-4 text-earth-400" />
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Flower2 className="w-5 h-5 text-sage-600" />
+          <h3 className="font-display font-semibold text-earth-900">Garden</h3>
         </div>
-        {totalPlants === 0 ? (
-          <div className="text-center py-6">
-            <Sprout className="w-10 h-10 text-sage-400 mx-auto mb-2" />
-            <p className="text-sm text-earth-500">Plant your first seed to get started</p>
-          </div>
-        ) : (
-          <>
-            <div className="flex gap-3 mb-3">
-              {garden.plants?.slice(0, 5).map((plant) => {
-                const config = PLANT_CONFIG[plant.type as PlantType];
-                return (
-                  <motion.div key={plant.id} animate={{ y: [0, -3, 0] }} transition={{ duration: 2 + Math.random(), repeat: Infinity, ease: 'easeInOut' }} className="text-2xl" title={config?.name || plant.type}>
-                    {config?.emoji || '\u{1F331}'}
-                  </motion.div>
-                );
-              })}
-              {totalPlants > 5 && <span className="text-sm text-earth-400 self-center">+{totalPlants - 5}</span>}
-            </div>
-            <div className="flex items-center gap-4 text-xs text-earth-500">
-              <span className="flex items-center gap-1"><Sun className="w-3.5 h-3.5 text-amber-500" />{garden.sunlight ?? 0} sunlight</span>
-              <span className="flex items-center gap-1"><Droplets className="w-3.5 h-3.5 text-sky-500" />{garden.water ?? 0} water</span>
-              <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5 text-rose-500" />{healthyPlants}/{totalPlants} healthy</span>
-            </div>
-          </>
-        )}
-      </Card>
-    </motion.div>
+        <span className="text-xs text-earth-500">Level {garden.level}</span>
+      </div>
+      {activePlants.length === 0 ? (
+        <p className="text-sm text-earth-400 text-center py-4">Plant your first seed!</p>
+      ) : (
+        <div className="grid grid-cols-4 gap-2">
+          {activePlants.map((plot) => {
+            const plant = plot.plant!;
+            const config = PLANT_CONFIG[plant.type];
+            return (
+              <div key={plot.id} className="text-center">
+                <div className="text-2xl mb-1">{config?.emoji ?? '\uD83C\uDF31'}</div>
+                <p className="text-xs text-earth-600 truncate">{config?.name ?? plant.type}</p>
+                <div className="mt-1">
+                  <ProgressBar value={plant.health} max={100} variant="sage" size="sm" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 };
 
-const DailyProgress: React.FC = () => {
+export function HomePage() {
+  const navigate = useNavigate();
   const { data } = useAppStore();
-  const nutrition = data.nutrition;
-  const fitness = data.fitness;
-  const caloriesEaten = getTodayCalories(nutrition.meals);
+  const { money, fitness, nutrition, profile } = data;
+
+  const monthlySpent = useMemo(() => getMonthlySpent(money.transactions, money.expenses), [money.transactions, money.expenses]);
+  const todayCalories = useMemo(() => getTodayCalories(nutrition.meals), [nutrition.meals]);
+  const todayProtein = useMemo(() => getTodayProtein(nutrition.meals), [nutrition.meals]);
+  const todaySteps = useMemo(() => getTodaySteps(fitness.workouts), [fitness.workouts]);
+
   const calorieGoal = nutrition.goals?.dailyCalorieGoal ?? 2000;
-  const proteinEaten = getTodayProtein(nutrition.meals);
   const proteinGoal = nutrition.goals?.dailyProteinGoal ?? 150;
-  const steps = getTodaySteps(fitness.workouts);
-  const stepGoal = fitness.goals?.dailyStepGoal ?? fitness.goals?.dailyStepTarget ?? 10000;
-  const items = [
-    { label: 'Calories', current: caloriesEaten, goal: calorieGoal, unit: 'kcal', color: 'amber' as const },
-    { label: 'Protein', current: proteinEaten, goal: proteinGoal, unit: 'g', color: 'sage' as const },
-    { label: 'Steps', current: steps, goal: stepGoal, unit: '', color: 'terracotta' as const },
-  ];
+  const stepGoal = fitness.goals?.dailyStepTarget ?? 10000;
+  const currency = profile.currency ?? '$';
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
 
   return (
-    <Card className="p-5">
-      <h3 className="font-display font-bold text-earth-900 mb-4">Today\'s Progress</h3>
-      <div className="space-y-4">
-        {items.map((item) => (
-          <div key={item.label}>
-            <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-earth-600 font-medium">{item.label}</span>
-              <span className="text-earth-500">{item.current.toLocaleString()}{item.unit} / {item.goal.toLocaleString()}{item.unit}</span>
-            </div>
-            <ProgressBar value={item.current} max={item.goal} variant={item.color} size="md" />
-          </div>
+    <div className="space-y-6 pb-20">
+      <div>
+        <h1 className="text-2xl font-display font-bold text-earth-900">
+          {greeting}, {profile.name || 'there'}
+        </h1>
+        <p className="text-earth-500 text-sm mt-1">Here's your life at a glance</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard icon={<Wallet className="w-5 h-5" />} label="Spent this month" value={`${currency}${monthlySpent.toLocaleString()}`} color="text-amber-600" bgColor="bg-amber-50" onClick={() => navigate('/money')} />
+        <StatCard icon={<Flame className="w-5 h-5" />} label="Calories today" value={`${todayCalories}`} subtitle={`of ${calorieGoal} goal`} color="text-orange-600" bgColor="bg-orange-50" onClick={() => navigate('/nutrition')} />
+        <StatCard icon={<Footprints className="w-5 h-5" />} label="Steps today" value={todaySteps.toLocaleString()} subtitle={`of ${stepGoal.toLocaleString()} goal`} color="text-blue-600" bgColor="bg-blue-50" onClick={() => navigate('/fitness')} />
+        <StatCard icon={<Heart className="w-5 h-5" />} label="Protein today" value={`${todayProtein}g`} subtitle={`of ${proteinGoal}g goal`} color="text-rose-600" bgColor="bg-rose-50" onClick={() => navigate('/nutrition')} />
+      </div>
+      <Card className="p-4 space-y-3">
+        <h3 className="font-display font-semibold text-earth-900 text-sm">Today's Progress</h3>
+        <div>
+          <div className="flex justify-between text-xs mb-1"><span className="text-earth-600">Calories</span><span className="text-earth-500">{todayCalories} / {calorieGoal}</span></div>
+          <ProgressBar value={todayCalories} max={calorieGoal} variant="amber" />
+        </div>
+        <div>
+          <div className="flex justify-between text-xs mb-1"><span className="text-earth-600">Protein</span><span className="text-earth-500">{todayProtein}g / {proteinGoal}g</span></div>
+          <ProgressBar value={todayProtein} max={proteinGoal} variant="rose" />
+        </div>
+        <div>
+          <div className="flex justify-between text-xs mb-1"><span className="text-earth-600">Steps</span><span className="text-earth-500">{todaySteps.toLocaleString()} / {stepGoal.toLocaleString()}</span></div>
+          <ProgressBar value={todaySteps} max={stepGoal} variant="sage" />
+        </div>
+      </Card>
+      <GardenPreview />
+      <div className="space-y-2">
+        {[
+          { icon: <Wallet className="w-5 h-5" />, label: 'Money', path: '/money', color: 'text-amber-600' },
+          { icon: <Dumbbell className="w-5 h-5" />, label: 'Fitness', path: '/fitness', color: 'text-blue-600' },
+          { icon: <UtensilsCrossed className="w-5 h-5" />, label: 'Nutrition', path: '/nutrition', color: 'text-orange-600' },
+          { icon: <Flower2 className="w-5 h-5" />, label: 'Garden', path: '/garden', color: 'text-sage-600' },
+        ].map((item) => (
+          <motion.div key={item.path} whileTap={{ scale: 0.98 }} onClick={() => navigate(item.path)}>
+            <Card className="p-3 flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-3">
+                <div className={item.color}>{item.icon}</div>
+                <span className="font-medium text-earth-800">{item.label}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-earth-400" />
+            </Card>
+          </motion.div>
         ))}
       </div>
-    </Card>
-  );
-};
-
-const QuickActions: React.FC = () => {
-  const navigate = useNavigate();
-  const actions = [
-    { label: 'Log Meal', icon: <UtensilsCrossed className="w-5 h-5" />, path: '/nutrition', color: 'bg-amber-100 text-amber-600' },
-    { label: 'Workout', icon: <Dumbbell className="w-5 h-5" />, path: '/fitness', color: 'bg-terracotta-100 text-terracotta-600' },
-    { label: 'Expense', icon: <Wallet className="w-5 h-5" />, path: '/money', color: 'bg-sage-100 text-sage-600' },
-    { label: 'Garden', icon: <Flower2 className="w-5 h-5" />, path: '/garden', color: 'bg-rose-100 text-rose-500' },
-  ];
-  return (
-    <div className="grid grid-cols-4 gap-3">
-      {actions.map((action) => (
-        <motion.button key={action.label} whileTap={{ scale: 0.93 }} onClick={() => navigate(action.path)} className="flex flex-col items-center gap-2 py-3">
-          <div className={`w-12 h-12 rounded-2xl ${action.color} flex items-center justify-center`}>{action.icon}</div>
-          <span className="text-xs font-medium text-earth-600">{action.label}</span>
-        </motion.button>
-      ))}
     </div>
   );
-};
-
-const StreakBanner: React.FC = () => {
-  const { data } = useAppStore();
-  const currentStreak = data.garden.streak ?? 0;
-  if (currentStreak < 1) return null;
-  return (
-    <Card className="p-4 bg-gradient-to-r from-amber-50 to-terracotta-50 border-amber-200">
-      <div className="flex items-center gap-3">
-        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
-          <Flame className="w-8 h-8 text-terracotta-500" />
-        </motion.div>
-        <div>
-          <p className="font-display font-bold text-earth-900">{currentStreak} day streak!</p>
-          <p className="text-xs text-earth-500">Keep it going to help your garden thrive</p>
-        </div>
-      </div>
-    </Card>
-  );
-};
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 6) return 'Good night';
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  if (hour < 21) return 'Good evening';
-  return 'Good night';
 }
-
-function getGreetingIcon() {
-  const hour = new Date().getHours();
-  if (hour >= 6 && hour < 18) return <Sun className="w-5 h-5 text-amber-500" />;
-  return <Moon className="w-5 h-5 text-indigo-400" />;
-}
-
-export const HomePage: React.FC = () => {
-  const { data } = useAppStore();
-  const money = data.money;
-  const navigate = useNavigate();
-  const balance = useMemo(() => {
-    const accounts = money.accounts ?? [];
-    return accounts.reduce((sum: number, a) => sum + (a.balance ?? 0), 0);
-  }, [money.accounts]);
-  const monthlySpent = getMonthlySpent(money.transactions ?? [], money.expenses);
-  const todaySteps = getTodaySteps(data.fitness.workouts);
-  const todayCalories = getTodayCalories(data.nutrition.meals);
-  const currency = money.currency ?? 'AED';
-  const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
-  const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
-
-  return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-5 pb-6">
-      <motion.div variants={item} className="flex items-center gap-2">
-        {getGreetingIcon()}
-        <h1 className="text-xl font-display font-bold text-earth-900">{getGreeting()}</h1>
-      </motion.div>
-      <motion.div variants={item}><StreakBanner /></motion.div>
-      <motion.div variants={item}><QuickActions /></motion.div>
-      <motion.div variants={item} className="grid grid-cols-2 gap-3">
-        <StatCard icon={<Wallet className="w-5 h-5" />} label="Balance" value={`${currency} ${balance.toLocaleString()}`} color="text-sage-600" bgColor="bg-sage-100" onClick={() => navigate('/money')} />
-        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="This Month" value={`${currency} ${monthlySpent.toLocaleString()}`} subtitle="spent so far" color="text-amber-600" bgColor="bg-amber-100" onClick={() => navigate('/money')} />
-        <StatCard icon={<Footprints className="w-5 h-5" />} label="Steps" value={todaySteps.toLocaleString()} subtitle="today" color="text-terracotta-600" bgColor="bg-terracotta-100" onClick={() => navigate('/fitness')} />
-        <StatCard icon={<Flame className="w-5 h-5" />} label="Calories" value={todayCalories.toLocaleString()} subtitle="consumed" color="text-rose-600" bgColor="bg-rose-100" onClick={() => navigate('/nutrition')} />
-      </motion.div>
-      <motion.div variants={item}><GardenPreview /></motion.div>
-      <motion.div variants={item}><DailyProgress /></motion.div>
-    </motion.div>
-  );
-};
