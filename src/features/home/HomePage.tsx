@@ -20,6 +20,8 @@ import { useAppStore } from '@/store/useAppStore';
 import { Card } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { PLANT_CONFIG } from '@/constants';
+import { getMonthlySpent, getTodayCalories, getTodayProtein, getTodaySteps } from '@/utils/computedHelpers';
+import type { PlantType } from '@/types';
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -53,7 +55,7 @@ const GardenPreview: React.FC = () => {
   const { data } = useAppStore();
   const garden = data.garden;
   const navigate = useNavigate();
-  const healthyPlants = garden.plants?.filter((p: any) => (p.health ?? 100) > 50).length ?? 0;
+  const healthyPlants = garden.plants?.filter((p) => (p.health ?? 100) > 50).length ?? 0;
   const totalPlants = garden.plants?.length ?? 0;
 
   return (
@@ -74,8 +76,8 @@ const GardenPreview: React.FC = () => {
         ) : (
           <>
             <div className="flex gap-3 mb-3">
-              {garden.plants?.slice(0, 5).map((plant: any) => {
-                const config = PLANT_CONFIG[plant.type];
+              {garden.plants?.slice(0, 5).map((plant) => {
+                const config = PLANT_CONFIG[plant.type as PlantType];
                 return (
                   <motion.div key={plant.id} animate={{ y: [0, -3, 0] }} transition={{ duration: 2 + Math.random(), repeat: Infinity, ease: 'easeInOut' }} className="text-2xl" title={config?.name || plant.type}>
                     {config?.emoji || '\u{1F331}'}
@@ -100,12 +102,12 @@ const DailyProgress: React.FC = () => {
   const { data } = useAppStore();
   const nutrition = data.nutrition;
   const fitness = data.fitness;
-  const caloriesEaten = nutrition.todayCalories ?? 0;
-  const calorieGoal = nutrition.dailyCalorieGoal ?? 2000;
-  const proteinEaten = nutrition.todayProtein ?? 0;
-  const proteinGoal = nutrition.dailyProteinGoal ?? 150;
-  const steps = fitness.todaySteps ?? 0;
-  const stepGoal = fitness.dailyStepGoal ?? 10000;
+  const caloriesEaten = getTodayCalories(nutrition.meals);
+  const calorieGoal = nutrition.goals?.dailyCalorieGoal ?? 2000;
+  const proteinEaten = getTodayProtein(nutrition.meals);
+  const proteinGoal = nutrition.goals?.dailyProteinGoal ?? 150;
+  const steps = getTodaySteps(fitness.workouts);
+  const stepGoal = fitness.goals?.dailyStepGoal ?? fitness.goals?.dailyStepTarget ?? 10000;
   const items = [
     { label: 'Calories', current: caloriesEaten, goal: calorieGoal, unit: 'kcal', color: 'amber' as const },
     { label: 'Protein', current: proteinEaten, goal: proteinGoal, unit: 'g', color: 'sage' as const },
@@ -114,7 +116,7 @@ const DailyProgress: React.FC = () => {
 
   return (
     <Card className="p-5">
-      <h3 className="font-display font-bold text-earth-900 mb-4">Today's Progress</h3>
+      <h3 className="font-display font-bold text-earth-900 mb-4">Today\'s Progress</h3>
       <div className="space-y-4">
         {items.map((item) => (
           <div key={item.label}>
@@ -190,8 +192,11 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const balance = useMemo(() => {
     const accounts = money.accounts ?? [];
-    return accounts.reduce((sum: number, a: any) => sum + (a.balance ?? 0), 0);
+    return accounts.reduce((sum: number, a) => sum + (a.balance ?? 0), 0);
   }, [money.accounts]);
+  const monthlySpent = getMonthlySpent(money.transactions ?? [], money.expenses);
+  const todaySteps = getTodaySteps(data.fitness.workouts);
+  const todayCalories = getTodayCalories(data.nutrition.meals);
   const currency = money.currency ?? 'AED';
   const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
   const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
@@ -206,9 +211,9 @@ export const HomePage: React.FC = () => {
       <motion.div variants={item}><QuickActions /></motion.div>
       <motion.div variants={item} className="grid grid-cols-2 gap-3">
         <StatCard icon={<Wallet className="w-5 h-5" />} label="Balance" value={`${currency} ${balance.toLocaleString()}`} color="text-sage-600" bgColor="bg-sage-100" onClick={() => navigate('/money')} />
-        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="This Month" value={`${currency} ${(money.monthlySpent ?? 0).toLocaleString()}`} subtitle="spent so far" color="text-amber-600" bgColor="bg-amber-100" onClick={() => navigate('/money')} />
-        <StatCard icon={<Footprints className="w-5 h-5" />} label="Steps" value={(0).toLocaleString()} subtitle="today" color="text-terracotta-600" bgColor="bg-terracotta-100" onClick={() => navigate('/fitness')} />
-        <StatCard icon={<Flame className="w-5 h-5" />} label="Calories" value={(0).toLocaleString()} subtitle="consumed" color="text-rose-600" bgColor="bg-rose-100" onClick={() => navigate('/nutrition')} />
+        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="This Month" value={`${currency} ${monthlySpent.toLocaleString()}`} subtitle="spent so far" color="text-amber-600" bgColor="bg-amber-100" onClick={() => navigate('/money')} />
+        <StatCard icon={<Footprints className="w-5 h-5" />} label="Steps" value={todaySteps.toLocaleString()} subtitle="today" color="text-terracotta-600" bgColor="bg-terracotta-100" onClick={() => navigate('/fitness')} />
+        <StatCard icon={<Flame className="w-5 h-5" />} label="Calories" value={todayCalories.toLocaleString()} subtitle="consumed" color="text-rose-600" bgColor="bg-rose-100" onClick={() => navigate('/nutrition')} />
       </motion.div>
       <motion.div variants={item}><GardenPreview /></motion.div>
       <motion.div variants={item}><DailyProgress /></motion.div>
