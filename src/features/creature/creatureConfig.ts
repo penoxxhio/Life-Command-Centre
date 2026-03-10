@@ -73,58 +73,58 @@ export interface SpeciesVisual {
 export const SPECIES_CONFIG: Record<CreatureSpecies, SpeciesVisual> = {
   fox: {
     name: 'Ember Fox',
-    emoji: '🦊',
+    emoji: '\uD83E\uDD8A',
     color: '#ff7b26',
     glowColor: 'rgba(255, 123, 38, 0.4)',
     description: 'Quick and clever. Thrives on consistency.',
-    stageEmojis: { egg: '🥚', baby: '🦊', teen: '🦊', adult: '🦊', legendary: '🦊' },
+    stageEmojis: { egg: '\uD83E\uDD5A', baby: '\uD83E\uDD8A', teen: '\uD83E\uDD8A', adult: '\uD83E\uDD8A', legendary: '\uD83E\uDD8A' },
     stageSizes: { egg: 40, baby: 56, teen: 72, adult: 88, legendary: 104 },
   },
   dragon: {
     name: 'Void Dragon',
-    emoji: '🐉',
+    emoji: '\uD83D\uDC09',
     color: '#8626ff',
     glowColor: 'rgba(134, 38, 255, 0.4)',
     description: 'Powerful and disciplined. Grows through strength.',
-    stageEmojis: { egg: '🥚', baby: '🐲', teen: '🐲', adult: '🐉', legendary: '🐉' },
+    stageEmojis: { egg: '\uD83E\uDD5A', baby: '\uD83D\uDC32', teen: '\uD83D\uDC32', adult: '\uD83D\uDC09', legendary: '\uD83D\uDC09' },
     stageSizes: { egg: 40, baby: 56, teen: 72, adult: 88, legendary: 104 },
   },
   cat: {
     name: 'Neon Cat',
-    emoji: '🐱',
+    emoji: '\uD83D\uDC31',
     color: '#00d4ff',
     glowColor: 'rgba(0, 212, 255, 0.4)',
     description: 'Independent and smart. Rewards balanced living.',
-    stageEmojis: { egg: '🥚', baby: '🐱', teen: '🐈', adult: '🐈', legendary: '🐈' },
+    stageEmojis: { egg: '\uD83E\uDD5A', baby: '\uD83D\uDC31', teen: '\uD83D\uDC08', adult: '\uD83D\uDC08', legendary: '\uD83D\uDC08' },
     stageSizes: { egg: 40, baby: 56, teen: 72, adult: 88, legendary: 104 },
   },
   owl: {
     name: 'Astral Owl',
-    emoji: '🦉',
+    emoji: '\uD83E\uDD89',
     color: '#ffc000',
     glowColor: 'rgba(255, 192, 0, 0.4)',
     description: 'Wise and watchful. Thrives on knowledge and routine.',
-    stageEmojis: { egg: '🥚', baby: '🐤', teen: '🦉', adult: '🦉', legendary: '🦉' },
+    stageEmojis: { egg: '\uD83E\uDD5A', baby: '\uD83D\uDC24', teen: '\uD83E\uDD89', adult: '\uD83E\uDD89', legendary: '\uD83E\uDD89' },
     stageSizes: { egg: 40, baby: 56, teen: 72, adult: 88, legendary: 104 },
   },
   wolf: {
     name: 'Shadow Wolf',
-    emoji: '🐺',
+    emoji: '\uD83D\uDC3A',
     color: '#9ea4ba',
     glowColor: 'rgba(158, 164, 186, 0.4)',
     description: 'Loyal and fierce. Gains power from discipline.',
-    stageEmojis: { egg: '🥚', baby: '🐕', teen: '🐺', adult: '🐺', legendary: '🐺' },
+    stageEmojis: { egg: '\uD83E\uDD5A', baby: '\uD83D\uDC15', teen: '\uD83D\uDC3A', adult: '\uD83D\uDC3A', legendary: '\uD83D\uDC3A' },
     stageSizes: { egg: 40, baby: 56, teen: 72, adult: 88, legendary: 104 },
   },
 };
 
 // ---- Mood expressions (text-based for each mood) ----
 export const MOOD_EXPRESSIONS: Record<CreatureMood, { face: string; message: string }> = {
-  ecstatic: { face: '✨', message: 'Feeling amazing!' },
-  happy: { face: '😊', message: 'Life is good~' },
-  neutral: { face: '😐', message: 'Could use some attention...' },
-  sad: { face: '😢', message: 'Please take care of me...' },
-  critical: { face: '😵', message: 'I need help!' },
+  ecstatic: { face: '\u2728', message: 'Feeling amazing!' },
+  happy: { face: '\uD83D\uDE0A', message: 'Life is good~' },
+  neutral: { face: '\uD83D\uDE10', message: 'Could use some attention...' },
+  sad: { face: '\uD83D\uDE22', message: 'Please take care of me...' },
+  critical: { face: '\uD83D\uDE35', message: 'I need help!' },
 };
 
 // ---- Stage descriptions ----
