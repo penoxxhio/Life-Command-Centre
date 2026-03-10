@@ -17,7 +17,7 @@ interface PlantDetailProps {
 
 export const PlantDetail: React.FC<PlantDetailProps> = ({ plant, onWater, onRemove, onClose }) => {
   const config = PLANT_CONFIG[plant.type];
-  const stage = GROWTH_STAGES[plant.growthStage ?? 0];
+  const stage = GROWTH_STAGES[plant.stage];
   const health = plant.health ?? 100;
   const xp = plant.xp ?? 0;
   const nextLevelXp = (plant.growthStage ?? 0 + 1) * 100;
@@ -38,7 +38,7 @@ export const PlantDetail: React.FC<PlantDetailProps> = ({ plant, onWater, onRemo
             </span>
             <span className="text-earth-500">{health}%</span>
           </div>
-          <ProgressBar value={health} max={100} color={health > 50 ? 'sage' : 'terracotta'} size="sm" />
+          <ProgressBar value={health} max={100} variant={health > 50 ? 'sage' : 'terracotta'} size="sm" />
         </div>
 
         <div>
@@ -48,7 +48,7 @@ export const PlantDetail: React.FC<PlantDetailProps> = ({ plant, onWater, onRemo
             </span>
             <span className="text-earth-500">{stage?.label ?? 'Seed'}</span>
           </div>
-          <ProgressBar value={xp} max={nextLevelXp || 100} color="amber" size="sm" />
+          <ProgressBar value={xp} max={nextLevelXp || 100} variant="amber" size="sm" />
           <p className="text-xs text-earth-400 mt-0.5">{xp} / {nextLevelXp} XP to next stage</p>
         </div>
       </Card>
@@ -65,9 +65,6 @@ export const PlantDetail: React.FC<PlantDetailProps> = ({ plant, onWater, onRemo
             <span className="text-earth-600">Water: {plant.water ?? 0}</span>
           </div>
         </div>
-        {config?.careNotes && (
-          <p className="text-xs text-earth-400 mt-3 italic">{config.careNotes}</p>
-        )}
       </Card>
 
       {/* Actions */}
