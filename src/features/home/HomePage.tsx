@@ -89,7 +89,7 @@ export function HomePage() {
                 value={evoProgress}
                 color="neon"
                 size="md"
-                label={`Stage ${stageIdx + 1}/5 \u2014 ${creature.stage.toUpperCase()}`}
+                label={`Stage ${stageIdx + 1}/5 — ${creature.stage.toUpperCase()}`}
                 showValue
               />
             )}
