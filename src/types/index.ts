@@ -2,18 +2,27 @@
 export interface ProfileData {
   name: string;
   currency: string;
-  timezone: string;
-  theme: 'light' | 'dark' | 'auto';
+  timezone?: string;
+  theme?: 'light' | 'dark' | 'auto';
+  payday?: number;
+  workSchedule?: string;
   setupComplete: boolean;
 }
 
 export interface NotificationSettings {
   enabled: boolean;
-  reminderTime: string;
-  gardenReminders: boolean;
-  fitnessReminders: boolean;
-  nutritionReminders: boolean;
-  moneyReminders: boolean;
+  // Component-style fields
+  reminderTime?: string;
+  gardenReminders?: boolean;
+  fitnessReminders?: boolean;
+  nutritionReminders?: boolean;
+  moneyReminders?: boolean;
+  // Constants-style fields
+  morningReminder?: boolean;
+  middayReminder?: boolean;
+  eveningReminder?: boolean;
+  weeklyHealthSync?: boolean;
+  backupReminder?: boolean;
 }
 
 // ===== Money =====
@@ -100,15 +109,38 @@ export interface RecurringTransaction {
   active: boolean;
 }
 
-export interface BudgetConfig {
-  monthlyBudget: number;
-  categories: BudgetCategory[];
+export interface FixedObligation {
+  name: string;
+  amount: number;
+  icon?: string;
+}
+
+export interface BudgetCategorySubcategory {
+  name: string;
+  budget: number;
+  icon?: string;
 }
 
 export interface BudgetCategory {
   name: string;
-  limit: number;
+  // Component-style fields
+  limit?: number;
   color?: string;
+  // Constants-style fields
+  budget?: number;
+  icon?: string;
+  subcategories?: BudgetCategorySubcategory[];
+}
+
+export interface BudgetConfig {
+  // Component-style fields
+  monthlyBudget?: number;
+  categories?: BudgetCategory[];
+  // Constants-style fields
+  totalIncome?: number;
+  savingsTarget?: number;
+  fixedObligations?: FixedObligation[];
+  livingCategories?: BudgetCategory[];
 }
 
 export interface MoneyData {
@@ -140,9 +172,21 @@ export interface Workout {
 }
 
 export interface FitnessGoals {
-  dailyStepGoal: number;
-  weeklyWorkoutGoal: number;
+  // Component-style fields
+  dailyStepGoal?: number;
+  weeklyWorkoutGoal?: number;
   dailyCalorieGoal?: number;
+  // Constants-style fields
+  weeklySessionTarget?: number;
+  dailyProteinTarget?: number;
+  dailyCalorieTarget?: number;
+  dailyCarbTarget?: number;
+  dailyFatTarget?: number;
+  dailyFiberTarget?: number;
+  dailySugarLimit?: number;
+  dailySodiumLimit?: number;
+  dailySleepTarget?: number;
+  dailyStepTarget?: number;
 }
 
 export interface FitnessData {
@@ -174,7 +218,7 @@ export interface NutritionData {
 }
 
 // ===== Garden =====
-export type PlantType = 'sunflower' | 'cactus' | 'fern' | 'bonsai' | 'rose' | 'herb';
+export type PlantType = 'sunflower' | 'cactus' | 'fern' | 'bonsai' | 'rose' | 'herb' | 'tree' | 'tulip' | 'cherry' | 'palm';
 export type GrowthStage = 'seed' | 'sprout' | 'growing' | 'mature' | 'blooming';
 export type GardenActionType = 'water' | 'sunlight' | 'fertilize' | 'prune';
 
@@ -229,4 +273,4 @@ export interface ToastItem {
   message: string;
   type: 'success' | 'error' | 'info' | 'warning';
   duration?: number;
-}
+}\n
