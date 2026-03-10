@@ -5,6 +5,7 @@ import { BudgetOverview } from './components/BudgetOverview';
 import { ExpenseLogger } from './components/ExpenseLogger';
 import { TransactionHistory } from './components/TransactionHistory';
 import { DebtTracker } from './components/DebtTracker';
+import { RecurringManager } from './components/RecurringManager';
 
 type MoneyTab = 'overview' | 'expenses' | 'transactions' | 'debt';
 
@@ -12,6 +13,7 @@ export function MoneyPage() {
   const { data, updateMoney } = useAppStore();
   const money = data.money;
   const [activeTab, setActiveTab] = useState<MoneyTab>('overview');
+  const [showExpenseLogger, setShowExpenseLogger] = useState(false);
 
   const tabs: { id: MoneyTab; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: '\ud83d\udcca' },
@@ -43,29 +45,18 @@ export function MoneyPage() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <AccountsList accounts={money.accounts} currency={money.currency} />
+          <AccountsList />
           <BudgetOverview money={money} />
+          <RecurringManager />
         </div>
       )}
 
       {activeTab === 'expenses' && (
-        <ExpenseLogger
-          onAddExpense={(expense) => {
-            updateMoney({
-              ...money,
-              expenses: [...money.expenses, expense],
-            });
-          }}
-          categories={money.budgetConfig?.categories ?? money.budgetConfig?.livingCategories ?? []}
-          currency={money.currency}
-        />
+        <ExpenseLogger onClose={() => setActiveTab('overview')} />
       )}
 
       {activeTab === 'transactions' && (
-        <TransactionHistory
-          transactions={money.transactions}
-          currency={money.currency}
-        />
+        <TransactionHistory />
       )}
 
       {activeTab === 'debt' && (
@@ -73,7 +64,7 @@ export function MoneyPage() {
           debts={money.debtAccounts?.length ? money.debtAccounts : money.debts}
           currency={money.currency}
           onUpdateDebts={(debts) => {
-            updateMoney({ ...money, debtAccounts: debts, debts });
+            updateMoney({ debtAccounts: debts, debts });
           }}
         />
       )}
