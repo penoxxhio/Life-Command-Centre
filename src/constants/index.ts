@@ -3,6 +3,7 @@ import type {
   BudgetCategory,
   FixedObligation,
   FitnessGoals,
+  NutritionGoals,
   GardenPlot,
   PlantType,
   GrowthStage,
@@ -16,14 +17,14 @@ export const PLANT_CONFIG: Record<
     name: string;
     emoji: string;
     color: string;
-    decayRate: number; // health lost per day without activity
-    xpToGrow: number; // XP needed per stage
+    decayRate: number;
+    xpToGrow: number;
     description: string;
   }
 > = {
   sunflower: {
     name: 'Sunflower',
-    emoji: '🌻',
+    emoji: '\ud83c\udf3b',
     color: '#F0B840',
     decayRate: 8,
     xpToGrow: 40,
@@ -31,7 +32,7 @@ export const PLANT_CONFIG: Record<
   },
   rose: {
     name: 'Rose',
-    emoji: '🌹',
+    emoji: '\ud83c\udf39',
     color: '#D46A6A',
     decayRate: 10,
     xpToGrow: 50,
@@ -39,7 +40,7 @@ export const PLANT_CONFIG: Record<
   },
   cactus: {
     name: 'Cactus',
-    emoji: '🌵',
+    emoji: '\ud83c\udf35',
     color: '#6B8F71',
     decayRate: 3,
     xpToGrow: 60,
@@ -47,7 +48,7 @@ export const PLANT_CONFIG: Record<
   },
   herb: {
     name: 'Herb',
-    emoji: '🌿',
+    emoji: '\ud83c\udf3f',
     color: '#7AAD83',
     decayRate: 6,
     xpToGrow: 30,
@@ -55,7 +56,7 @@ export const PLANT_CONFIG: Record<
   },
   tree: {
     name: 'Tree',
-    emoji: '🌳',
+    emoji: '\ud83c\udf33',
     color: '#42573F',
     decayRate: 4,
     xpToGrow: 80,
@@ -63,7 +64,7 @@ export const PLANT_CONFIG: Record<
   },
   tulip: {
     name: 'Tulip',
-    emoji: '🌷',
+    emoji: '\ud83c\udf37',
     color: '#E8A838',
     decayRate: 9,
     xpToGrow: 35,
@@ -71,7 +72,7 @@ export const PLANT_CONFIG: Record<
   },
   cherry: {
     name: 'Cherry Blossom',
-    emoji: '🌸',
+    emoji: '\ud83c\udf38',
     color: '#F2BCBC',
     decayRate: 7,
     xpToGrow: 55,
@@ -79,7 +80,7 @@ export const PLANT_CONFIG: Record<
   },
   palm: {
     name: 'Palm',
-    emoji: '🌴',
+    emoji: '\ud83c\udf34',
     color: '#93BA9B',
     decayRate: 5,
     xpToGrow: 70,
@@ -88,11 +89,11 @@ export const PLANT_CONFIG: Record<
 };
 
 export const GROWTH_STAGES: Record<GrowthStage, { label: string; emoji: string; multiplier: number }> = {
-  seed: { label: 'Seed', emoji: '🫘', multiplier: 0 },
-  sprout: { label: 'Sprout', emoji: '🌱', multiplier: 0.25 },
-  growing: { label: 'Growing', emoji: '🪴', multiplier: 0.5 },
-  blooming: { label: 'Blooming', emoji: '🌼', multiplier: 0.75 },
-  mature: { label: 'Mature', emoji: '✨', multiplier: 1 },
+  seed: { label: 'Seed', emoji: '\ud83e\udeed', multiplier: 0 },
+  sprout: { label: 'Sprout', emoji: '\ud83c\udf31', multiplier: 0.25 },
+  growing: { label: 'Growing', emoji: '\ud83e\udeb4', multiplier: 0.5 },
+  blooming: { label: 'Blooming', emoji: '\ud83c\udf3c', multiplier: 0.75 },
+  mature: { label: 'Mature', emoji: '\u2728', multiplier: 1 },
 };
 
 export const STAGE_ORDER: GrowthStage[] = ['seed', 'sprout', 'growing', 'blooming', 'mature'];
@@ -119,77 +120,89 @@ export const GARDEN_HEALTH_REWARDS: Record<string, number> = {
 // --- Level System ---
 export const XP_PER_LEVEL = 200;
 export const MAX_PLOTS = 9;
-export const PLOTS_PER_LEVEL = [1, 2, 3, 4, 5, 6, 7, 8, 9]; // plots unlocked at each level
+export const PLOTS_PER_LEVEL = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 // --- Default Budget Categories ---
 export const DEFAULT_FIXED_OBLIGATIONS: FixedObligation[] = [
-  { name: 'Rent/Mortgage', amount: 0, icon: '🏠' },
-  { name: 'Utilities', amount: 0, icon: '💡' },
-  { name: 'Insurance', amount: 0, icon: '🛡️' },
-  { name: 'Subscriptions', amount: 0, icon: '📱' },
+  { name: 'Rent/Mortgage', amount: 0, icon: '\ud83c\udfe0' },
+  { name: 'Utilities', amount: 0, icon: '\ud83d\udca1' },
+  { name: 'Insurance', amount: 0, icon: '\ud83d\udee1\ufe0f' },
+  { name: 'Subscriptions', amount: 0, icon: '\ud83d\udcf1' },
 ];
 
 export const DEFAULT_BUDGET_CATEGORIES: BudgetCategory[] = [
   {
     name: 'Food & Dining',
     budget: 0,
-    icon: '🍽️',
+    icon: '\ud83c\udf7d\ufe0f',
     subcategories: [
-      { name: 'Groceries', budget: 0, icon: '🛒' },
-      { name: 'Restaurants', budget: 0, icon: '🍕' },
-      { name: 'Coffee', budget: 0, icon: '☕' },
+      { name: 'Groceries', budget: 0, icon: '\ud83d\uded2' },
+      { name: 'Restaurants', budget: 0, icon: '\ud83c\udf55' },
+      { name: 'Coffee', budget: 0, icon: '\u2615' },
     ],
   },
   {
     name: 'Transport',
     budget: 0,
-    icon: '🚗',
+    icon: '\ud83d\ude97',
     subcategories: [
-      { name: 'Fuel', budget: 0, icon: '⛽' },
-      { name: 'Parking', budget: 0, icon: '🅿️' },
-      { name: 'Public Transit', budget: 0, icon: '🚌' },
+      { name: 'Fuel', budget: 0, icon: '\u26fd' },
+      { name: 'Parking', budget: 0, icon: '\ud83c\udd7f\ufe0f' },
+      { name: 'Public Transit', budget: 0, icon: '\ud83d\ude8c' },
     ],
   },
   {
     name: 'Shopping',
     budget: 0,
-    icon: '🛍️',
+    icon: '\ud83d\udecd\ufe0f',
     subcategories: [
-      { name: 'Clothing', budget: 0, icon: '👕' },
-      { name: 'Electronics', budget: 0, icon: '📱' },
-      { name: 'Home', budget: 0, icon: '🏡' },
+      { name: 'Clothing', budget: 0, icon: '\ud83d\udc55' },
+      { name: 'Electronics', budget: 0, icon: '\ud83d\udcf1' },
+      { name: 'Home', budget: 0, icon: '\ud83c\udfe1' },
     ],
   },
   {
     name: 'Health & Fitness',
     budget: 0,
-    icon: '💪',
+    icon: '\ud83d\udcaa',
     subcategories: [
-      { name: 'Gym', budget: 0, icon: '🏋️' },
-      { name: 'Supplements', budget: 0, icon: '💊' },
-      { name: 'Medical', budget: 0, icon: '🏥' },
+      { name: 'Gym', budget: 0, icon: '\ud83c\udfcb\ufe0f' },
+      { name: 'Supplements', budget: 0, icon: '\ud83d\udc8a' },
+      { name: 'Medical', budget: 0, icon: '\ud83c\udfe5' },
     ],
   },
   {
     name: 'Entertainment',
     budget: 0,
-    icon: '🎮',
+    icon: '\ud83c\udfae',
     subcategories: [
-      { name: 'Games', budget: 0, icon: '🎯' },
-      { name: 'Movies', budget: 0, icon: '🎬' },
-      { name: 'Going Out', budget: 0, icon: '🍺' },
+      { name: 'Games', budget: 0, icon: '\ud83c\udfaf' },
+      { name: 'Movies', budget: 0, icon: '\ud83c\udfac' },
+      { name: 'Going Out', budget: 0, icon: '\ud83c\udf7a' },
     ],
   },
   {
     name: 'Personal',
     budget: 0,
-    icon: '✨',
+    icon: '\u2728',
     subcategories: [
-      { name: 'Self Care', budget: 0, icon: '💆' },
-      { name: 'Education', budget: 0, icon: '📚' },
-      { name: 'Gifts', budget: 0, icon: '🎁' },
+      { name: 'Self Care', budget: 0, icon: '\ud83d\udc86' },
+      { name: 'Education', budget: 0, icon: '\ud83d\udcda' },
+      { name: 'Gifts', budget: 0, icon: '\ud83c\udf81' },
     ],
   },
+];
+
+// --- Expense Categories (used in BudgetOverview, ExpenseLogger, TransactionHistory) ---
+export const EXPENSE_CATEGORIES = [
+  { name: 'Food & Dining', icon: '\ud83c\udf7d\ufe0f', color: '#F59E0B' },
+  { name: 'Transport', icon: '\ud83d\ude97', color: '#3B82F6' },
+  { name: 'Shopping', icon: '\ud83d\udecd\ufe0f', color: '#8B5CF6' },
+  { name: 'Health & Fitness', icon: '\ud83d\udcaa', color: '#10B981' },
+  { name: 'Entertainment', icon: '\ud83c\udfae', color: '#EC4899' },
+  { name: 'Personal', icon: '\u2728', color: '#6366F1' },
+  { name: 'Bills & Utilities', icon: '\ud83d\udca1', color: '#EF4444' },
+  { name: 'Other', icon: '\ud83d\udccc', color: '#6B7280' },
 ];
 
 // --- Default Fitness Goals ---
@@ -204,6 +217,12 @@ export const DEFAULT_FITNESS_GOALS: FitnessGoals = {
   dailySodiumLimit: 2300,
   dailySleepTarget: 8,
   dailyStepTarget: 10000,
+};
+
+// --- Default Nutrition Goals ---
+export const DEFAULT_NUTRITION_GOALS: NutritionGoals = {
+  dailyCalorieGoal: 2200,
+  dailyProteinGoal: 150,
 };
 
 // --- Default Notification Settings ---
@@ -221,11 +240,11 @@ export const createInitialPlots = (): GardenPlot[] => {
   return Array.from({ length: 9 }, (_, i) => ({
     id: i,
     plant: null,
-    unlocked: i === 0, // Only first plot unlocked initially
+    unlocked: i === 0,
   }));
 };
 
-// --- Initial App Data ---
+// --- Initial App Data (lean — no derived fields) ---
 export const createInitialAppData = (): AppData => ({
   profile: {
     name: '',
@@ -254,23 +273,16 @@ export const createInitialAppData = (): AppData => ({
       livingCategories: [...DEFAULT_BUDGET_CATEGORIES],
     },
     currency: 'AED',
-    monthlyIncome: 0,
-    monthlySpent: 0,
     debts: [],
   },
   fitness: {
     workouts: [],
+    sleepLog: [],
     goals: { ...DEFAULT_FITNESS_GOALS },
-    todaySteps: 0,
-    weeklyWorkoutCount: 0,
-    lastSleepHours: 0,
   },
   nutrition: {
     meals: [],
-    todayCalories: 0,
-    dailyCalorieGoal: 2200,
-    todayProtein: 0,
-    dailyProteinGoal: 150,
+    goals: { ...DEFAULT_NUTRITION_GOALS },
   },
   garden: {
     plots: createInitialPlots(),
@@ -291,7 +303,7 @@ export const GEMINI_DAILY_LIMIT = 1500;
 // --- Storage Keys ---
 export const STORAGE_KEYS = {
   APP_DATA: 'life-command-centre-data-v2',
-  APP_DATA_V1: 'life-command-center-data-v1', // For migration
+  APP_DATA_V1: 'life-command-center-data-v1',
   STREAK: 'life-command-streak',
   GEMINI_USAGE: 'gemini_usage_stats',
   HEALTH_IMPORT: 'health_import_data',
@@ -299,35 +311,23 @@ export const STORAGE_KEYS = {
 
 // --- Currency Options ---
 export const CURRENCY_OPTIONS = [
-  { value: 'AED', label: 'AED (د.إ)' },
+  { value: 'AED', label: 'AED (\u062f.\u0625)' },
   { value: 'USD', label: 'USD ($)' },
-  { value: 'EUR', label: 'EUR (€)' },
-  { value: 'GBP', label: 'GBP (£)' },
-  { value: 'SAR', label: 'SAR (﷼)' },
-  { value: 'INR', label: 'INR (₹)' },
+  { value: 'EUR', label: 'EUR (\u20ac)' },
+  { value: 'GBP', label: 'GBP (\u00a3)' },
+  { value: 'SAR', label: 'SAR (\ufdfc)' },
+  { value: 'INR', label: 'INR (\u20b9)' },
   { value: 'CAD', label: 'CAD ($)' },
   { value: 'AUD', label: 'AUD ($)' },
 ];
 
 export const CURRENCY_SYMBOLS: Record<string, string> = {
-  AED: 'د.إ',
+  AED: '\u062f.\u0625',
   USD: '$',
-  EUR: '€',
-  GBP: '£',
-  SAR: '﷼',
-  INR: '₹',
-  CAD: 'C$',
-  AUD: 'A$',
+  EUR: '\u20ac',
+  GBP: '\u00a3',
+  SAR: '\ufdfc',
+  INR: '\u20b9',
+  CAD: '$',
+  AUD: '$',
 };
-export const EXPENSE_CATEGORIES = [
-  { value: 'food', label: 'Food & Dining', emoji: '🍔', color: '#e8845a' },
-  { value: 'transport', label: 'Transport', emoji: '🚗', color: '#5c8a5c' },
-  { value: 'shopping', label: 'Shopping', emoji: '🛍️', color: '#a8865b' },
-  { value: 'bills', label: 'Bills & Utilities', emoji: '📱', color: '#7c5b40' },
-  { value: 'health', label: 'Health', emoji: '💊', color: '#e06a38' },
-  { value: 'entertainment', label: 'Entertainment', emoji: '🎬', color: '#5dba5d' },
-  { value: 'education', label: 'Education', emoji: '📚', color: '#476e47' },
-  { value: 'personal', label: 'Personal Care', emoji: '💇', color: '#d1522a' },
-  { value: 'home', label: 'Home', emoji: '🏠', color: '#96724d' },
-  { value: 'other', label: 'Other', emoji: '📦', color: '#b89b74' },
-] as const;
