@@ -298,3 +298,15 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
   CAD: 'C$',
   AUD: 'A$',
 };
+export const EXPENSE_CATEGORIES = [
+  { value: 'food', label: 'Food & Dining', emoji: '🍔', color: '#e8845a' },
+  { value: 'transport', label: 'Transport', emoji: '🚗', color: '#5c8a5c' },
+  { value: 'shopping', label: 'Shopping', emoji: '🛍️', color: '#a8865b' },
+  { value: 'bills', label: 'Bills & Utilities', emoji: '📱', color: '#7c5b40' },
+  { value: 'health', label: 'Health', emoji: '💊', color: '#e06a38' },
+  { value: 'entertainment', label: 'Entertainment', emoji: '🎬', color: '#5dba5d' },
+  { value: 'education', label: 'Education', emoji: '📚', color: '#476e47' },
+  { value: 'personal', label: 'Personal Care', emoji: '💇', color: '#d1522a' },
+  { value: 'home', label: 'Home', emoji: '🏠', color: '#96724d' },
+  { value: 'other', label: 'Other', emoji: '📦', color: '#b89b74' },
+] as const;
