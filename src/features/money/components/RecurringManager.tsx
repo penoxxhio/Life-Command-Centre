@@ -63,3 +63,40 @@ export const RecurringManager: React.FC = () => {
       ) : (
         <div className="space-y-2">
           {recurring.map((item: any) => (
+            <motion.div key={item.id} layout>
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center"><Repeat className="w-4 h-4 text-amber-600" /></div>
+                    <div><p className="font-medium text-earth-900">{item.name}</p><p className="text-xs text-earth-500 capitalize">{item.frequency} {item.dueDay ? `- Day ${item.dueDay}` : ''}</p></div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-bold text-earth-900">{currency} {item.amount.toLocaleString()}</span>
+                    <button onClick={() => setDeleteId(item.id)} className="text-earth-400 hover:text-rose-500 p-1"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
+      <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Recurring Expense">
+        <div className="space-y-4">
+          <Input label="Name" placeholder="e.g. Netflix, Rent" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input label="Amount" type="number" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <div>
+            <label className="block text-sm font-medium text-earth-700 mb-1.5">Frequency</label>
+            <div className="flex gap-2">
+              {(['weekly', 'monthly', 'yearly'] as const).map((f) => (
+                <button key={f} onClick={() => setFrequency(f)} className={`px-3 py-1.5 rounded-garden text-sm capitalize transition-all ${frequency === f ? 'bg-sage-500 text-white' : 'bg-cream-100 text-earth-600'}`}>{f}</button>
+              ))}
+            </div>
+          </div>
+          <Input label="Due Day" type="number" placeholder="1" value={dueDay} onChange={(e) => setDueDay(e.target.value)} />
+          <Button variant="primary" fullWidth onClick={handleAdd}>Add Recurring</Button>
+        </div>
+      </Modal>
+      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Recurring" message="Remove this recurring expense?" confirmLabel="Delete" variant="danger" />
+    </>
+  );
+};
