@@ -1,3 +1,4 @@
+import type { PlantType } from '@/types';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { PLANT_CONFIG } from '@/constants';
@@ -18,7 +19,7 @@ export const PlantPicker: React.FC<PlantPickerProps> = ({ onSelect, onCancel }) 
 
   const handlePlant = () => {
     if (!selectedType) return;
-    onSelect(selectedType, name.trim() || PLANT_CONFIG[selectedType]?.name || 'My Plant');
+    onSelect(selectedType, name.trim() || PLANT_CONFIG[selectedType as PlantType]?.name || 'My Plant');
   };
 
   return (
@@ -54,7 +55,7 @@ export const PlantPicker: React.FC<PlantPickerProps> = ({ onSelect, onCancel }) 
         >
           <Input
             label="Name your plant (optional)"
-            placeholder={PLANT_CONFIG[selectedType]?.name || 'My Plant'}
+            placeholder={PLANT_CONFIG[selectedType as PlantType]?.name || 'My Plant'}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
