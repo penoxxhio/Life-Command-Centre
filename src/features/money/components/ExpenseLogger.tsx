@@ -12,7 +12,7 @@ export const ExpenseLogger: React.FC<ExpenseLoggerProps> = ({ onClose }) => {
   const money = data.money;
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('food');
+  const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]?.name ?? 'Food & Dining');
   const [accountId, setAccountId] = useState(money.accounts?.[0]?.id ?? '');
   const currency = money.currency ?? 'AED';
   const accounts = money.accounts ?? [];
@@ -20,11 +20,20 @@ export const ExpenseLogger: React.FC<ExpenseLoggerProps> = ({ onClose }) => {
   const handleSubmit = () => {
     const value = parseFloat(amount);
     if (!value || value <= 0) return;
-    const transaction: Transaction = { id: Date.now().toString(), amount: value, description: description.trim() || category, category, accountId, type: 'expense', date: new Date().toISOString() };
+    const transaction: Transaction = {
+      id: Date.now().toString(),
+      amount: value,
+      description: description.trim() || category,
+      category,
+      accountId,
+      type: 'expense',
+      date: new Date().toISOString(),
+    };
     const transactions = [...(money.transactions ?? []), transaction];
-    const monthlySpent = (money.monthlySpent ?? 0) + value;
-    const updatedAccounts = accounts.map((a: any) => a.id === accountId ? { ...a, balance: (a.balance ?? 0) - value } : a);
-    updateMoney({ transactions, monthlySpent, accounts: updatedAccounts });
+    const updatedAccounts = accounts.map((a) =>
+      a.id === accountId ? { ...a, balance: (a.balance ?? 0) - value } : a
+    );
+    updateMoney({ transactions, accounts: updatedAccounts });
     onClose();
   };
 
@@ -36,8 +45,16 @@ export const ExpenseLogger: React.FC<ExpenseLoggerProps> = ({ onClose }) => {
         <label className="block text-sm font-medium text-earth-700 mb-1.5">Category</label>
         <div className="flex flex-wrap gap-2">
           {EXPENSE_CATEGORIES.map((cat) => (
-            <button key={cat.key} onClick={() => setCategory(cat.key)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-garden text-sm transition-all ${category === cat.key ? 'bg-sage-500 text-white shadow-garden' : 'bg-cream-100 text-earth-600 hover:bg-cream-200'}`}>
-              <span>{cat.emoji}</span>{cat.label}
+            <button
+              key={cat.name}
+              onClick={() => setCategory(cat.name)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-garden text-sm transition-all ${
+                category === cat.name
+                  ? 'bg-sage-500 text-white shadow-garden'
+                  : 'bg-cream-100 text-earth-600 hover:bg-cream-200'
+              }`}
+            >
+              <span>{cat.icon}</span>{cat.name}
             </button>
           ))}
         </div>
@@ -46,7 +63,7 @@ export const ExpenseLogger: React.FC<ExpenseLoggerProps> = ({ onClose }) => {
         <div>
           <label className="block text-sm font-medium text-earth-700 mb-1.5">From Account</label>
           <div className="flex flex-wrap gap-2">
-            {accounts.map((acc: any) => (
+            {accounts.map((acc) => (
               <button key={acc.id} onClick={() => setAccountId(acc.id)} className={`px-3 py-1.5 rounded-garden text-sm transition-all ${accountId === acc.id ? 'bg-sage-500 text-white' : 'bg-cream-100 text-earth-600'}`}>{acc.name}</button>
             ))}
           </div>
