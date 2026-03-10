@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { EXPENSE_CATEGORIES } from '@/constants';
 
-const getCategoryEmoji = (key: string) => EXPENSE_CATEGORIES.find((c) => c.name === key)?.emoji ?? '\u{1F4E6}';
+const getCategoryEmoji = (key: string) => EXPENSE_CATEGORIES.find((c) => c.name === key)?.icon ?? '\u{1F4E6}';
 
 export const TransactionHistory: React.FC = () => {
   const { data } = useAppStore();
