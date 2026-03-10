@@ -45,44 +45,62 @@ const SettingsSection: React.FC<SectionProps> = ({ title, icon, children, defaul
 };
 
 export const SettingsPage: React.FC = () => {
-  const { money, health, settings, setMoney, setHealth, setSettings, resetAll } = useAppStore();
+  const { data, updateMoney, updateNutrition, updateFitness, updateProfile, updateNotifications, setData } = useAppStore();
+  const money = data.money;
+  const nutrition = data.nutrition;
+  const fitness = data.fitness;
+  const profile = data.profile;
+  const notifications = data.notifications;
+
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [geminiKey, setGeminiKey] = useState(settings.geminiApiKey ?? '');
+  const [geminiKey, setGeminiKey] = useState('');
   const [keySaved, setKeySaved] = useState(false);
 
   // Money settings
-  const [income, setIncome] = useState(money.monthlyIncome?.toString() ?? '');
+  const [income, setIncome] = useState((money.budgetConfig?.totalIncome ?? 0).toString());
   const [currency, setCurrency] = useState(money.currency ?? 'AED');
 
   // Health settings
-  const [calorieGoal, setCalorieGoal] = useState(health.dailyCalorieGoal?.toString() ?? '2000');
-  const [proteinGoal, setProteinGoal] = useState(health.dailyProteinGoal?.toString() ?? '150');
-  const [stepGoal, setStepGoal] = useState(health.dailyStepGoal?.toString() ?? '10000');
+  const [calorieGoal, setCalorieGoal] = useState((nutrition.goals?.dailyCalorieGoal ?? 2000).toString());
+  const [proteinGoal, setProteinGoal] = useState((nutrition.goals?.dailyProteinGoal ?? 150).toString());
+  const [stepGoal, setStepGoal] = useState((fitness.goals?.dailyStepGoal ?? fitness.goals?.dailyStepTarget ?? 10000).toString());
 
   const handleSaveApiKey = () => {
-    setSettings({ geminiApiKey: geminiKey.trim() });
+    localStorage.setItem('gemini_api_key', geminiKey.trim());
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
   };
 
   const handleSaveMoney = () => {
-    setMoney({
-      monthlyIncome: parseFloat(income) || 0,
+    updateMoney({
       currency,
+      budgetConfig: {
+        ...money.budgetConfig,
+        totalIncome: parseFloat(income) || 0,
+      },
     });
   };
 
   const handleSaveHealth = () => {
-    setHealth({
-      dailyCalorieGoal: parseInt(calorieGoal) || 2000,
-      dailyProteinGoal: parseInt(proteinGoal) || 150,
-      dailyStepGoal: parseInt(stepGoal) || 10000,
+    updateNutrition({
+      goals: {
+        ...nutrition.goals,
+        dailyCalorieGoal: parseInt(calorieGoal) || 2000,
+        dailyProteinGoal: parseInt(proteinGoal) || 150,
+      },
+    });
+    updateFitness({
+      goals: {
+        ...fitness.goals,
+        dailyStepGoal: parseInt(stepGoal) || 10000,
+        dailyStepTarget: parseInt(stepGoal) || 10000,
+      },
     });
   };
 
   const handleExport = () => {
-    const data = JSON.stringify(useAppStore.getState(), null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
+    const exportData = JSON.stringify(data, null, 2);
+    const blob = new Blob([exportData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -92,7 +110,8 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleReset = () => {
-    resetAll();
+    const { createInitialAppData } = require('@/constants');
+    setData(createInitialAppData());
     setShowResetConfirm(false);
     window.location.reload();
   };
@@ -114,8 +133,8 @@ export const SettingsPage: React.FC = () => {
           <Input
             label="Display Name"
             placeholder="Your name"
-            value={settings.displayName ?? ''}
-            onChange={(e) => setSettings({ displayName: e.target.value })}
+            value={profile.name ?? ''}
+            onChange={(e) => updateProfile({ name: e.target.value })}
           />
         </SettingsSection>
       </motion.div>
@@ -194,22 +213,19 @@ export const SettingsPage: React.FC = () => {
         <SettingsSection title="Notifications" icon={<Bell className="w-5 h-5 text-amber-600" />}>
           <div className="space-y-3">
             {[
-              { key: 'mealReminders', label: 'Meal reminders' },
-              { key: 'workoutReminders', label: 'Workout reminders' },
-              { key: 'budgetAlerts', label: 'Budget alerts' },
-              { key: 'gardenUpdates', label: 'Garden updates' },
+              { key: 'gardenReminders', label: 'Garden reminders' },
+              { key: 'fitnessReminders', label: 'Workout reminders' },
+              { key: 'moneyReminders', label: 'Budget alerts' },
+              { key: 'nutritionReminders', label: 'Meal reminders' },
             ].map((notif) => (
               <label key={notif.key} className="flex items-center justify-between">
                 <span className="text-sm text-earth-700">{notif.label}</span>
                 <input
                   type="checkbox"
-                  checked={(settings.notifications as any)?.[notif.key] ?? true}
+                  checked={(notifications as Record<string, unknown>)?.[notif.key] as boolean ?? true}
                   onChange={(e) =>
-                    setSettings({
-                      notifications: {
-                        ...(settings.notifications ?? {}),
-                        [notif.key]: e.target.checked,
-                      },
+                    updateNotifications({
+                      [notif.key]: e.target.checked,
                     })
                   }
                   className="w-5 h-5 rounded text-sage-500 border-cream-300 focus:ring-sage-500"
