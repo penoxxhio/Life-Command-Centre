@@ -45,6 +45,7 @@ export const Button: React.FC<ButtonProps> = ({
   const { onDrag, onDragStart, onDragEnd, ...safeProps } = props;
 
   return (
+    // @ts-expect-error framer-motion type conflict with HTMLButtonElement
     <motion.button
       whileTap={{ scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 400, damping: 17 }}
