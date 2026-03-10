@@ -95,6 +95,7 @@ export interface RecurringExpense {
   nextDue: string;
   accountId?: string;
   active: boolean;
+  dueDay?: number;
 }
 
 export interface RecurringTransaction {
